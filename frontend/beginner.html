@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Image Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf8f4;--white:#ffffff;--surface:#f2ede6;--surface2:#e8e0d5;
+  --border:#ddd5c8;--border2:#c4b8a8;
+  --text:#1c1814;--muted:#8a7d6e;--faint:#b8ad9e;
+  --ink:#c84b2f;--ink2:#e06040;--ink-light:#fdf0ec;
+  --good:#2a8a5a;--good-light:#edf7f2;
+  --blue:#3060c8;--blue-light:#eef2fd;
+  --warn:#b87020;--warn-light:#fdf5e8;
+  --serif:'Fraunces',serif;--sans:'DM Sans',sans-serif;
+  --r:14px;--rs:8px;--shadow:0 2px 12px rgba(0,0,0,.07);--shadow2:0 4px 24px rgba(0,0,0,.12);
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;min-height:100vh}
+
+/* ── layout ── */
+.app{max-width:1100px;margin:0 auto;padding:0 20px 60px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 0 28px;border-bottom:1px solid var(--border);margin-bottom:32px}
+.brand{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.brand em{color:var(--ink);font-style:italic}
+.conn-pill{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);background:var(--white);border:1px solid var(--border);border-radius:100px;padding:6px 14px;cursor:pointer;transition:border-color .2s}
+.conn-pill:hover{border-color:var(--border2)}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex-shrink:0}
+.conn-dot.on{background:var(--good)}
+.conn-dot.err{background:var(--ink)}
+.conn-dot.spin{background:var(--warn);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.main-grid{display:grid;grid-template-columns:1fr 420px;gap:28px;align-items:start}
+
+/* ── cards ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:24px;box-shadow:var(--shadow)}
+.card+.card{margin-top:16px}
+.card-title{font-family:var(--serif);font-size:19px;font-weight:500;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card-sub{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+
+/* ── field system ── */
+.field{margin-bottom:20px}
+.field:last-child{margin-bottom:0}
+.field-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;gap:8px}
+.field-label{font-size:14px;font-weight:500;color:var(--text)}
+.field-hint{font-size:12px;color:var(--muted);text-align:right;max-width:240px;line-height:1.4}
+.field-explain{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;padding:8px 10px;background:var(--surface);border-radius:var(--rs);border-left:3px solid var(--border2)}
+
+textarea,input[type=text],input[type=number],select{
+  width:100%;background:var(--white);border:1.5px solid var(--border);border-radius:var(--rs);
+  padding:10px 13px;font-size:14px;color:var(--text);font-family:var(--sans);
+  outline:none;transition:border-color .2s,box-shadow .2s;resize:none;appearance:none;line-height:1.5
+}
+textarea:focus,input:focus,select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(200,75,47,.1)}
+textarea::placeholder,input::placeholder{color:var(--faint)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M0 0l6 7 6-7z' fill='%238a7d6e'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
+select option{background:#fff;color:var(--text)}
+
+/* ── sliders with plain-language labels ── */
+.slider-field{margin-bottom:20px}
+.slider-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.slider-label{font-size:14px;font-weight:500}
+.slider-value-badge{font-size:12px;font-weight:500;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:2px 10px;color:var(--text);min-width:60px;text-align:center}
+.slider-track{position:relative;height:6px;background:var(--surface2);border-radius:3px;margin-bottom:6px}
+input[type=range]{width:100%;height:6px;-webkit-appearance:none;background:transparent;outline:none;cursor:pointer;position:relative;z-index:1}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--ink);cursor:pointer;border:3px solid var(--white);box-shadow:0 1px 6px rgba(200,75,47,.35);transition:transform .15s}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.15)}
+.slider-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:2px}
+
+/* ── toggle chips ── */
+.chip-group{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:7px 14px;border:1.5px solid var(--border);border-radius:100px;font-size:13px;font-weight:400;color:var(--muted);cursor:pointer;transition:all .15s;background:var(--white);user-select:none}
+.chip:hover{border-color:var(--border2);color:var(--text)}
+.chip.active{border-color:var(--ink);color:var(--ink);background:var(--ink-light);font-weight:500}
+.chip.active-blue{border-color:var(--blue);color:var(--blue);background:var(--blue-light);font-weight:500}
+
+/* ── style picker ── */
+.style-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.style-card{border:1.5px solid var(--border);border-radius:var(--rs);padding:11px 10px;cursor:pointer;transition:all .15s;background:var(--white);text-align:center}
+.style-card:hover{border-color:var(--border2);background:var(--surface)}
+.style-card.active{border-color:var(--ink);background:var(--ink-light)}
+.style-icon{font-size:22px;margin-bottom:4px}
+.style-name{font-size:13px;font-weight:500;color:var(--text)}
+.style-desc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+
+/* ── generate button ── */
+.gen-btn{width:100%;padding:15px;background:var(--ink);border:none;border-radius:var(--r);color:#fff;font-family:var(--serif);font-size:20px;font-weight:700;letter-spacing:-.01em;cursor:pointer;transition:background .2s,transform .1s,box-shadow .2s;box-shadow:0 4px 16px rgba(200,75,47,.3)}
+.gen-btn:hover{background:var(--ink2);box-shadow:0 6px 20px rgba(200,75,47,.4)}
+.gen-btn:active{transform:scale(.98)}
+.gen-btn:disabled{background:var(--faint);box-shadow:none;cursor:not-allowed;transform:none}
+
+/* ── progress ── */
+.progress-wrap{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:12px;opacity:0;transition:opacity .3s}
+.progress-wrap.show{opacity:1}
+.progress-bar{height:100%;background:var(--ink);width:0%;transition:width .5s;border-radius:3px}
+
+/* ── output area ── */
+.output-area{position:relative}
+.output-placeholder{aspect-ratio:3/4;background:var(--surface);border:2px dashed var(--border2);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--faint);font-family:var(--serif);font-style:italic;font-size:16px}
+.output-placeholder svg{opacity:.35}
+.output-img-wrap{position:relative;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow2)}
+.output-img-wrap img{width:100%;display:block;border-radius:var(--r)}
+.output-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.out-btn{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--rs);background:var(--white);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;transition:all .15s;text-align:center}
+.out-btn:hover{border-color:var(--border2);background:var(--surface)}
+.out-btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.out-btn.primary:hover{background:var(--ink2)}
+
+/* ── history strip ── */
+.history-label{font-size:12px;color:var(--muted);margin:16px 0 8px;font-weight:500}
+.history-strip{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px}
+.history-strip::-webkit-scrollbar{height:3px}
+.history-strip::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.hist-item{flex-shrink:0;width:70px;cursor:pointer;border-radius:var(--rs);overflow:hidden;border:2px solid transparent;transition:border-color .15s;position:relative}
+.hist-item:hover{border-color:var(--border2)}
+.hist-item.current{border-color:var(--ink)}
+.hist-item img{width:100%;height:70px;object-fit:cover;display:block}
+.hist-item-lock{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);border:none;border-radius:4px;color:#fff;font-size:10px;padding:1px 5px;cursor:pointer;line-height:1.6}
+
+/* ── comparison view ── */
+.compare-wrap{position:relative;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow2);cursor:ew-resize;user-select:none}
+.compare-wrap img{width:100%;display:block}
+.compare-new{position:absolute;inset:0;overflow:hidden}
+.compare-new img{width:100%;display:block}
+.compare-divider{position:absolute;top:0;bottom:0;width:3px;background:white;box-shadow:0 0 8px rgba(0,0,0,.4);cursor:ew-resize;z-index:10}
+.compare-divider::before{content:'◀ ▶';position:absolute;top:50%;transform:translateY(-50%);background:white;border-radius:100px;padding:4px 8px;font-size:11px;left:50%;transform:translate(-50%,-50%);color:#333;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.compare-label-old{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:2px 8px;border-radius:100px;z-index:5;pointer-events:none}
+.compare-label-new{position:absolute;top:10px;right:10px;background:var(--ink);color:#fff;font-size:11px;padding:2px 8px;border-radius:100px;z-index:5;pointer-events:none}
+
+/* ── info callouts ── */
+.callout{padding:12px 14px;border-radius:var(--rs);font-size:13px;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+.callout-tip{background:var(--blue-light);border:1px solid rgba(48,96,200,.2);color:var(--text)}
+.callout-warn{background:var(--warn-light);border:1px solid rgba(184,112,32,.2);color:var(--text)}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+
+/* ── api config modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:var(--r);padding:28px;width:min(90vw,460px);box-shadow:var(--shadow2)}
+.modal-title{font-family:var(--serif);font-size:20px;font-weight:700;margin-bottom:6px}
+.modal-close{float:right;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);margin-top:-4px}
+.modal-close:hover{color:var(--text)}
+
+/* ── toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);opacity:0;background:var(--text);color:#fff;font-size:13px;padding:10px 20px;border-radius:100px;z-index:200;transition:transform .3s,opacity .3s;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.good{background:var(--good)}
+.toast.bad{background:var(--ink)}
+
+/* responsive */
+@media(max-width:760px){.main-grid{grid-template-columns:1fr}.style-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- topbar -->
+  <div class="topbar">
+    <div class="brand"><em>AI</em> Image Maker</div>
+    <div class="conn-pill" onclick="openSettings()">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connLabel">connect to AI</span>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- ── LEFT: controls ── -->
+    <div>
+
+      <!-- WHAT TO MAKE -->
+      <div class="card">
+        <div class="card-title">What do you want to make?</div>
+        <div class="card-sub">Describe your image like you'd describe it to a friend. Don't worry about special words — just be specific about what you want to see.</div>
+
+        <div class="field">
+          <div class="field-top">
+            <div class="field-label">Describe your image</div>
+            <div class="field-hint">Be specific — the more detail, the better</div>
+          </div>
+          <textarea id="prompt" rows="4" placeholder="A woman with red hair sitting in a cozy coffee shop, warm lighting, rain outside the window, she's reading a book"></textarea>
+        </div>
+
+        <div class="field">
+          <div class="field-top">
+            <div class="field-label">What should <em>not</em> be in it?</div>
+            <div class="field-hint">Optional — things to avoid</div>
+          </div>
+          <textarea id="negPrompt" rows="2" placeholder="blurry, ugly, people in background, text on walls">blurry, low quality, deformed, ugly, watermark</textarea>
+          <div class="field-explain">💡 Think of this as a filter. If your last image had something you didn't want — a weird extra hand, blurry faces — add those things here.</div>
+        </div>
+      </div>
+
+      <!-- ART STYLE -->
+      <div class="card">
+        <div class="card-title">Art style</div>
+        <div class="card-sub">Pick the visual style. This shapes the whole look of your image.</div>
+        <div class="style-grid" id="styleGrid">
+          <div class="style-card active" onclick="pickStyle('photorealistic',this)">
+            <div class="style-icon">📷</div>
+            <div class="style-name">Photo Real</div>
+            <div class="style-desc">Looks like a real photograph</div>
+          </div>
+          <div class="style-card" onclick="pickStyle('comic book',this)">
+            <div class="style-icon">💥</div>
+            <div class="style-name">Comic Book</div>
+            <div class="style-desc">Bold ink lines, flat colour</div>
+          </div>
+          <div class="style-card" onclick="pickStyle('manga',this)">
+            <div class="style-icon">⛩️</div>
+            <div class="style-name">Manga</div>
+            <div class="style-desc">Japanese B&W anime style</div>
+          </div>
+          <div class="style-card" onclick="pickStyle('oil painting',this)">
+            <div class="style-icon">🎨</div>
+            <div class="style-name">Oil Painting</div>
+            <div class="style-desc">Rich, textured painted look</div>
+          </div>
+          <div class="style-card" onclick="pickStyle('noir',this)">
+            <div class="style-icon">🎬</div>
+            <div class="style-name">Noir / B&W</div>
+            <div class="style-desc">High-contrast black and white</div>
+          </div>
+          <div class="style-card" onclick="pickStyle('watercolor',this)">
+            <div class="style-icon">🖌️</div>
+            <div class="style-name">Watercolour</div>
+            <div class="style-desc">Soft, painted, dreamy feel</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK DETAILS -->
+      <div class="card">
+        <div class="card-title">Quick additions</div>
+        <div class="card-sub">Click anything that should be in your image. These get added to your description automatically.</div>
+
+        <div class="field">
+          <div class="field-label" style="margin-bottom:8px">Lighting</div>
+          <div class="chip-group" id="lightingChips">
+            <div class="chip" onclick="toggleChip(this,'golden hour sunlight')">🌅 Golden hour</div>
+            <div class="chip" onclick="toggleChip(this,'cinematic studio lighting')">💡 Studio lit</div>
+            <div class="chip" onclick="toggleChip(this,'soft natural daylight')">☀️ Daylight</div>
+            <div class="chip" onclick="toggleChip(this,'moody night lighting, neon')">🌃 Night / neon</div>
+            <div class="chip" onclick="toggleChip(this,'dramatic backlight silhouette')">🌑 Backlit</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label" style="margin-bottom:8px">Shot type</div>
+          <div class="chip-group">
+            <div class="chip" onclick="toggleChip(this,'extreme close-up portrait')">🔍 Close-up</div>
+            <div class="chip" onclick="toggleChip(this,'medium shot waist-up')">👤 Medium shot</div>
+            <div class="chip" onclick="toggleChip(this,'full body shot')">🧍 Full body</div>
+            <div class="chip" onclick="toggleChip(this,'wide establishing shot')">🏙️ Wide shot</div>
+            <div class="chip" onclick="toggleChip(this,'overhead bird\'s eye view')">🦅 Bird\'s eye</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-label" style="margin-bottom:8px">Quality boosters</div>
+          <div class="chip-group">
+            <div class="chip" onclick="toggleChip(this,'highly detailed, sharp focus')">✨ Ultra detailed</div>
+            <div class="chip" onclick="toggleChip(this,'bokeh depth of field')">🔆 Blurry background</div>
+            <div class="chip" onclick="toggleChip(this,'cinematic widescreen')">🎥 Cinematic</div>
+            <div class="chip" onclick="toggleChip(this,'professional DSLR photography')">📸 DSLR look</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FINE TUNING -->
+      <div class="card">
+        <div class="card-title">Fine tuning</div>
+        <div class="card-sub">These affect the quality and character of your image. The defaults work well — only adjust if something feels off.</div>
+
+        <!-- Quality -->
+        <div class="slider-field">
+          <div class="slider-top">
+            <div class="slider-label">Quality level</div>
+            <div class="slider-value-badge" id="stepsLabel">Good</div>
+          </div>
+          <input type="range" id="stepsSlider" min="0" max="2" step="1" value="1" oninput="updateSteps(this.value)">
+          <div class="slider-scale"><span>Fast (rougher)</span><span>Good</span><span>Slow (best)</span></div>
+          <div class="field-explain">⏱️ Higher quality takes longer to generate. Start with "Good" — only bump to "Best" once you're happy with your prompt.</div>
+        </div>
+
+        <!-- Prompt strength -->
+        <div class="slider-field">
+          <div class="slider-top">
+            <div class="slider-label">How strictly to follow your description</div>
+            <div class="slider-value-badge" id="cfgLabel">Balanced</div>
+          </div>
+          <input type="range" id="cfgSlider" min="0" max="2" step="1" value="1" oninput="updateCfg(this.value)">
+          <div class="slider-scale"><span>More creative</span><span>Balanced</span><span>Strict</span></div>
+          <div class="field-explain">🎨 "Creative" gives the AI more freedom — useful if you want surprising results. "Strict" makes it stick closely to every word you wrote. If your image looks nothing like your description, move this right. If it looks stiff and weird, move it left.</div>
+        </div>
+
+        <!-- Image size -->
+        <div class="field">
+          <div class="field-top">
+            <div class="field-label">Image shape</div>
+          </div>
+          <div class="chip-group">
+            <div class="chip active" onclick="pickSize('512x768',this)">📱 Portrait (tall)</div>
+            <div class="chip" onclick="pickSize('768x512',this)">🖥️ Landscape (wide)</div>
+            <div class="chip" onclick="pickSize('512x512',this)">⬛ Square</div>
+          </div>
+          <div class="field-explain" style="margin-top:8px">📐 Portrait works best for characters. Landscape for scenes. Square for anything.</div>
+        </div>
+
+        <!-- Variety -->
+        <div class="field">
+          <div class="field-top">
+            <div class="field-label">Result variety</div>
+          </div>
+          <div class="chip-group">
+            <div class="chip active" id="varietyRandom" onclick="setVariety('random',this)">🎲 Different every time</div>
+            <div class="chip" id="varietyLock" onclick="setVariety('locked',this)">🔒 Same starting point</div>
+          </div>
+          <div class="field-explain" id="varietyExplain">🎲 Every click generates a completely new result. Great for exploring ideas.</div>
+        </div>
+
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ── RIGHT: output ── -->
+    <div>
+
+      <!-- generate -->
+      <div class="card" style="position:sticky;top:20px">
+
+        <!-- output display -->
+        <div id="outputArea">
+          <div class="output-placeholder" id="outputPlaceholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+            </svg>
+            Your image will appear here
+          </div>
+          <div id="outputImgWrap" style="display:none">
+            <div id="compareWrap"></div>
+            <div class="output-actions">
+              <button class="out-btn primary" onclick="downloadImg()">⬇ Save image</button>
+              <button class="out-btn" onclick="tryVariation()" id="variationBtn">🎲 Try a variation</button>
+              <button class="out-btn" onclick="toggleCompare()" id="compareBtn" style="display:none">↔ Compare</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- history -->
+        <div id="historySection" style="display:none">
+          <div class="history-label">Previous versions — click any to compare</div>
+          <div class="history-strip" id="historyStrip"></div>
+        </div>
+
+        <!-- generate btn -->
+        <div style="margin-top:16px">
+          <button class="gen-btn" id="genBtn" onclick="generate()">Make image</button>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div id="genStatus" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center;min-height:18px"></div>
+        </div>
+
+        <div class="callout callout-tip" style="margin-top:16px">
+          <span class="callout-icon">💡</span>
+          <span><strong>Not quite right?</strong> The most common fix is making your description more specific. Instead of "a woman", try "a 30-year-old woman with curly brown hair and blue eyes".</span>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- API Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeSettings()">✕</button>
+    <div class="modal-title">Connect to AI</div>
+    <p style="font-size:13px;color:var(--muted);margin:6px 0 20px;line-height:1.6">This tool talks to an AI image generator running on a server. Paste your server address below.</p>
+
+    <div class="field">
+      <div class="field-label" style="margin-bottom:6px">Server address</div>
+      <input type="text" id="apiBase" value="http://localhost:3000" placeholder="http://localhost:3000">
+      <div class="field-explain" style="margin-top:6px">📡 This is the address of your AI server. If someone set it up for you, ask them for this address.</div>
+    </div>
+    <div class="field">
+      <div class="field-label" style="margin-bottom:6px">Password / access key</div>
+      <input type="text" id="apiKey" placeholder="leave blank if none">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="out-btn primary" onclick="testAndClose()" style="flex:1;padding:11px">Test connection</button>
+      <button class="out-btn" onclick="closeSettings()" style="padding:11px 16px">Cancel</button>
+    </div>
+    <div id="connTestResult" style="margin-top:10px;font-size:13px;min-height:18px;text-align:center"></div>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+/* ══ STATE ══ */
+const STEPS_MAP  = [15, 28, 45];
+const STEPS_LABEL = ['Fast', 'Good', 'Best'];
+const CFG_MAP    = [4, 7, 11];
+const CFG_LABEL  = ['Creative', 'Balanced', 'Strict'];
+const STYLE_SUFFIX = {
+  'photorealistic': 'photorealistic, cinematic lighting, sharp focus, detailed, DSLR',
+  'comic book':     'comic book art, bold ink outlines, flat colors, halftone dots, Marvel style illustration',
+  'manga':          'manga style, black and white, screentone shading, detailed linework, anime illustration',
+  'oil painting':   'oil painting, textured brushstrokes, rich color, classical painterly style',
+  'noir':           'black and white photography, high contrast, film noir, dramatic shadows',
+  'watercolor':     'watercolor illustration, soft washes, painted texture, gentle edges, artistic',
+};
+
+let currentStyle = 'photorealistic';
+let currentSize  = '512x768';
+let variety      = 'random';
+let lockedSeed   = -1;
+let activeChips  = new Set();
+let currentImage = null;
+let prevImage    = null;
+let history      = [];
+let comparing    = false;
+let pollTimer    = null;
+
+/* ══ UTILS ══ */
+const $ = id => document.getElementById(id);
+const getBase = () => $('apiBase').value.replace(/\/$/,'');
+const getHdrs = () => ({'Content-Type':'application/json','x-api-key':$('apiKey').value});
+
+function toast(msg, type=''){
+  const t=$('toastEl'); t.textContent=msg; t.className='toast show '+(type);
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+/* ══ SETTINGS ══ */
+function openSettings(){ $('settingsModal').classList.add('open'); }
+function closeSettings(){ $('settingsModal').classList.remove('open'); }
+
+async function testAndClose(){
+  const res=$('connTestResult');
+  res.style.color=var_('--muted'); res.textContent='Testing…';
+  try{
+    const r=await fetch(getBase()+'/health',{signal:AbortSignal.timeout(5000)});
+    const d=await r.json();
+    if(d.status==='ok'){
+      res.style.color='var(--good)'; res.textContent='✓ Connected! AI is ready.';
+      $('connDot').className='conn-dot on'; $('connLabel').textContent='AI connected';
+      setTimeout(closeSettings,1200);
+    } else {
+      res.style.color='var(--ink)'; res.textContent='AI server responded but is not ready.';
+      $('connDot').className='conn-dot err';
+    }
+  }catch{
+    res.style.color='var(--ink)';
+    res.textContent='Could not connect. Check the server address.';
+    $('connDot').className='conn-dot err'; $('connLabel').textContent='not connected';
+  }
+}
+
+function var_(name){ return getComputedStyle(document.documentElement).getPropertyValue(name); }
+
+/* ══ STYLE PICKER ══ */
+function pickStyle(s, el){
+  currentStyle=s;
+  document.querySelectorAll('.style-card').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ══ CHIPS ══ */
+function toggleChip(el, tag){
+  if(activeChips.has(tag)){ activeChips.delete(tag); el.classList.remove('active'); }
+  else { activeChips.add(tag); el.classList.add('active'); }
+}
+
+/* ══ SIZE ══ */
+function pickSize(s, el){
+  currentSize=s;
+  document.querySelectorAll('[onclick^="pickSize"]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ══ SLIDERS ══ */
+function updateSteps(v){
+  $('stepsLabel').textContent = STEPS_LABEL[v];
+}
+function updateCfg(v){
+  $('cfgLabel').textContent = CFG_LABEL[v];
+}
+
+/* ══ VARIETY ══ */
+function setVariety(mode, el){
+  variety=mode;
+  document.querySelectorAll('[onclick^="setVariety"]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  if(mode==='random'){
+    lockedSeed=-1;
+    $('varietyExplain').textContent='🎲 Every click generates a completely new result. Great for exploring ideas.';
+  } else {
+    // lock to last used seed or generate a new fixed one
+    if(lockedSeed===-1) lockedSeed=Math.floor(Math.random()*999999999);
+    $('varietyExplain').textContent=`🔒 Every click starts from the same point (${lockedSeed}), so results are similar. Good once you have a style you like and want small variations from tweaking your description.`;
+  }
+}
+
+/* ══ BUILD PROMPT ══ */
+function buildPrompt(){
+  const base = $('prompt').value.trim();
+  const chips = [...activeChips].join(', ');
+  const style = STYLE_SUFFIX[currentStyle]||currentStyle;
+  return [base, chips, style].filter(Boolean).join(', ');
+}
+
+/* ══ GENERATE ══ */
+async function generate(){
+  const btn=$('genBtn');
+  const promptText=$('prompt').value.trim();
+  if(!promptText){ toast('Describe what you want to make first','bad'); $('prompt').focus(); return; }
+
+  btn.disabled=true; btn.textContent='Making your image…';
+  $('progressWrap').classList.add('show');
+  $('progressBar').style.width='0%';
+  $('genStatus').textContent='Starting up…';
+
+  const [w,h]=currentSize.split('x').map(Number);
+  const steps = STEPS_MAP[parseInt($('stepsSlider').value)];
+  const cfg   = CFG_MAP[parseInt($('cfgSlider').value)];
+  const seed  = variety==='locked' ? lockedSeed : -1;
+
+  const payload={
+    prompt: buildPrompt(),
+    negative_prompt: $('negPrompt').value,
+    width:w, height:h,
+    steps, cfg_scale:cfg,
+    sampler_name:'DPM++ 2M Karras',
+    seed, batch_size:1,
+  };
+
+  pollTimer=setInterval(pollProgress,900);
+
+  try{
+    const r=await fetch(getBase()+'/generate/txt2img',{
+      method:'POST', headers:getHdrs(), body:JSON.stringify(payload)
+    });
+    if(!r.ok){
+      const err=await r.json().catch(()=>({}));
+      throw new Error(err.error||'Something went wrong. Is the AI server running?');
+    }
+    const data=await r.json();
+
+    // push to history
+    if(currentImage) pushHistory(currentImage);
+    prevImage=currentImage;
+    currentImage=data.images[0];
+
+    // lock seed if in locked mode (or lock the one just used)
+    if(variety==='locked'&&lockedSeed===-1) lockedSeed=data.seed;
+
+    showImage(currentImage);
+    $('genStatus').textContent='Done! ✓';
+    toast('Image ready!','good');
+
+  }catch(e){
+    $('genStatus').textContent='';
+    toast(e.message||'Generation failed','bad');
+  }finally{
+    clearInterval(pollTimer);
+    btn.disabled=false; btn.textContent='Make image';
+    $('progressBar').style.width='100%';
+    setTimeout(()=>{$('progressWrap').classList.remove('show');$('progressBar').style.width='0%';},1000);
+  }
+}
+
+async function pollProgress(){
+  try{
+    const r=await fetch(getBase()+'/progress',{headers:getHdrs()});
+    const d=await r.json();
+    const p=Math.min(Math.round((d.progress||0)*100),99);
+    $('progressBar').style.width=p+'%';
+    if(p>0) $('genStatus').textContent=`Generating… ${p}%`;
+  }catch{}
+}
+
+/* ══ DISPLAY ══ */
+function showImage(b64){
+  $('outputPlaceholder').style.display='none';
+  $('outputImgWrap').style.display='block';
+
+  comparing=false;
+  $('compareWrap').innerHTML=`<div class="output-img-wrap"><img id="currentImg" src="data:image/png;base64,${b64}" alt="generated image"></div>`;
+
+  if(prevImage){
+    $('compareBtn').style.display='';
+  }
+  renderHistory();
+}
+
+/* ══ COMPARE ══ */
+function toggleCompare(){
+  if(!prevImage||!currentImage) return;
+  comparing=!comparing;
+  if(comparing){ startCompare(); $('compareBtn').textContent='✕ Stop comparing'; }
+  else { showImage(currentImage); $('compareBtn').textContent='↔ Compare'; }
+}
+
+function startCompare(){
+  const wrap=$('compareWrap');
+  wrap.innerHTML=`
+    <div class="compare-wrap" id="compareOuter">
+      <div class="output-img-wrap" style="border-radius:var(--r)">
+        <img src="data:image/png;base64,${prevImage}" alt="previous" style="width:100%;display:block;border-radius:var(--r)">
+      </div>
+      <div class="compare-new" id="compareNew" style="clip-path:inset(0 50% 0 0)">
+        <img src="data:image/png;base64,${currentImage}" alt="new" style="width:100%;display:block;border-radius:var(--r)">
+      </div>
+      <div class="compare-divider" id="compareDivider" style="left:50%"></div>
+      <div class="compare-label-old">Before</div>
+      <div class="compare-label-new">After</div>
+    </div>`;
+
+  const outer=$('compareOuter');
+  const divider=$('compareDivider');
+  let dragging=false;
+
+  function moveDivider(e){
+    const rect=outer.getBoundingClientRect();
+    const x=Math.max(0,Math.min((e.clientX||e.touches[0].clientX)-rect.left,rect.width));
+    const pct=Math.round(x/rect.width*100);
+    divider.style.left=pct+'%';
+    $('compareNew').style.clipPath=`inset(0 ${100-pct}% 0 0)`;
+  }
+  outer.onmousedown=e=>{dragging=true;moveDivider(e);};
+  outer.ontouchstart=e=>{dragging=true;moveDivider(e.touches[0]);};
+  document.onmousemove=e=>{ if(dragging) moveDivider(e); };
+  document.ontouchmove=e=>{ if(dragging) moveDivider(e.touches[0]); };
+  document.onmouseup=()=>dragging=false;
+  document.ontouchend=()=>dragging=false;
+}
+
+/* ══ HISTORY ══ */
+function pushHistory(img){
+  history.unshift({img, ts:Date.now()});
+  if(history.length>8) history.pop();
+}
+
+function renderHistory(){
+  if(!history.length){ $('historySection').style.display='none'; return; }
+  $('historySection').style.display='block';
+  $('historyStrip').innerHTML=history.map((h,i)=>`
+    <div class="hist-item ${i===0&&!comparing?'current':''}" onclick="viewHistoryItem(${i})" title="Click to compare with current">
+      <img src="data:image/png;base64,${h.img}" alt="version ${i+1}">
+    </div>`).join('');
+}
+
+function viewHistoryItem(i){
+  prevImage=history[i].img;
+  comparing=true;
+  startCompare();
+  $('compareBtn').style.display='';
+  $('compareBtn').textContent='✕ Stop comparing';
+}
+
+/* ══ VARIATION ══ */
+async function tryVariation(){
+  // keep prompt but use random seed, shift denoise slightly
+  const origVariety=variety;
+  variety='random';
+  await generate();
+  variety=origVariety;
+}
+
+/* ══ DOWNLOAD ══ */
+function downloadImg(){
+  if(!currentImage) return;
+  const a=document.createElement('a');
+  a.href='data:image/png;base64,'+currentImage;
+  a.download='ai-image-'+Date.now()+'.png';
+  a.click();
+  toast('Saved!','good');
+}
+
+/* ══ KEYBOARD ══ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeSettings();
+  if((e.metaKey||e.ctrlKey)&&e.key==='Enter') generate();
+});
+</script>
+</body>
+</html>

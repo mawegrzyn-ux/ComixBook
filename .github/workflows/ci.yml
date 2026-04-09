@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Validate server ──────────────────────────────────────────
+  server:
+    name: Server (Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Check syntax (api.js)
+        working-directory: server
+        run: node --input-type=module --check < api.js
+
+      - name: Check syntax (api-examples.js)
+        working-directory: server
+        run: node --input-type=module --check < api-examples.js
+
+  # ── Validate shell scripts ───────────────────────────────────
+  deploy:
+    name: Deploy scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint start.sh
+        run: shellcheck --severity=error deploy/start.sh
+
+  # ── Validate HTML ────────────────────────────────────────────
+  frontend:
+    name: Frontend (HTML)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check HTML files exist and are non-empty
+        run: |
+          for f in frontend/*.html; do
+            if [ ! -s "$f" ]; then
+              echo "ERROR: $f is empty or missing"
+              exit 1
+            fi
+            echo "OK: $f ($(wc -l < $f) lines)"
+          done
+
+      - name: Check no hardcoded production secrets
+        run: |
+          # Fail if any real API keys or passwords snuck in
+          if grep -r "sk-\|CIVITAI_TOKEN=.\|HF_TOKEN=." frontend/ server/ deploy/; then
+            echo "ERROR: possible secret found in committed files"
+            exit 1
+          fi
+          echo "OK: no secrets detected"
+
+  # ── Check .env.example is complete ──────────────────────────
+  config:
+    name: Config completeness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: All env vars in api.js are documented in .env.example
+        run: |
+          # Extract env vars used in api.js
+          USED=$(grep -oP "process\.env\.\K\w+" server/api.js | sort -u)
+          # Extract vars defined in .env.example
+          DEFINED=$(grep -oP "^\K[A-Z_]+(?==)" server/.env.example | sort -u)
+
+          MISSING=""
+          for var in $USED; do
+            if ! echo "$DEFINED" | grep -q "^${var}$"; then
+              MISSING="$MISSING $var"
+            fi
+          done
+
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: env vars used in api.js but missing from .env.example:$MISSING"
+            exit 1
+          fi
+          echo "OK: all env vars documented"

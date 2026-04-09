@@ -1,0 +1,52 @@
+{
+  "name": "SD WebUI NSFW - AUTOMATIC1111",
+  "description": "Stable Diffusion WebUI (AUTOMATIC1111) with NSFW filters disabled, API enabled, xformers, ControlNet & ADetailer extensions.",
+
+  "imageName": "runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04",
+
+  "containerDiskInGb": 50,
+  "volumeInGb": 50,
+  "volumeMountPath": "/workspace",
+
+  "ports": "7860/http,3000/http,8888/http",
+
+  "env": [
+    {
+      "key": "HF_TOKEN",
+      "value": "YOUR_HUGGINGFACE_TOKEN_HERE"
+    },
+    {
+      "key": "CIVITAI_TOKEN",
+      "value": "YOUR_CIVITAI_TOKEN_HERE"
+    },
+    {
+      "key": "API_KEY",
+      "value": "YOUR_API_SECRET_HERE"
+    },
+    {
+      "key": "JUPYTER_PASSWORD",
+      "value": "YOUR_JUPYTER_PASSWORD_HERE"
+    },
+    {
+      "key": "IDLE_MINUTES",
+      "value": "30"
+    },
+    {
+      "key": "RUNPOD_API_KEY",
+      "value": ""
+    },
+    {
+      "key": "RUNPOD_POD_ID",
+      "value": ""
+    }
+  ],
+
+  "startScript": "bash /workspace/start.sh",
+
+  "notes": [
+    "Upload start.sh to /workspace/ before first run, or paste into the RunPod startup script field.",
+    "GPU recommendation: RTX 3090 / 4090 / A100 for best performance.",
+    "Add your model download URL inside start.sh before launching.",
+    "WebUI will be available on the exposed port 7860 via RunPod's proxy URL."
+  ]
+}

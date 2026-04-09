@@ -1,0 +1,2540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comic Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0c;--s1:#111115;--s2:#18181f;--s3:#222230;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#ede9ff;--muted:#6b6880;--faint:#3a3848;
+  --ink:#f0e830;--ink2:#ffe566;
+  --red:#ff4d6d;--teal:#2de0c0;--blue:#4d9fff;--purple:#a06eff;
+  --mono:'DM Mono',monospace;--display:'Bebas Neue',cursive;--body:'Outfit',sans-serif;
+  --r:10px;--rs:6px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;min-height:100vh;overflow:hidden}
+
+/* ── layout ── */
+.app{display:grid;grid-template-rows:56px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);background:var(--s1);padding:0}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.06em;color:var(--ink);padding:0 1.5rem;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px;height:100%}
+.brand-dot{width:10px;height:10px;background:var(--ink);border-radius:2px;transform:rotate(45deg)}
+.nav-tabs{display:flex;height:100%}
+.nav-tab{padding:0 1.25rem;border:none;background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border-right:1px solid var(--border);border-bottom:2px solid transparent;transition:color .15s,border-color .15s;height:100%}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--ink);border-bottom-color:var(--ink)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 1rem}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;cursor:pointer}
+.api-dot.online{background:var(--teal);box-shadow:0 0 6px var(--teal)}
+.api-dot.error{background:var(--red)}
+.api-dot.loading{background:var(--ink);animation:blink .8s infinite}
+.api-label{font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.workspace{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 56px);overflow:hidden}
+
+/* ── sidebar ── */
+.sidebar{background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{flex:1;overflow-y:auto;padding:1rem}
+.sidebar-section::-webkit-scrollbar{width:3px}
+.sidebar-section::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+
+/* panels */
+.page{display:none;flex-direction:column;height:100%;overflow:hidden}
+.page.active{display:flex}
+
+/* ── forms ── */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
+input[type=text],input[type=number],textarea,select{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:7px 10px;color:var(--text);font-family:var(--body);font-size:13px;outline:none;width:100%;transition:border-color .15s;resize:none;appearance:none}
+input:focus,textarea:focus,select:focus{border-color:var(--ink)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6880'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+select option{background:#18181f}
+
+/* ── buttons ── */
+.btn{padding:8px 14px;border:1px solid var(--border);border-radius:var(--rs);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--border2);color:var(--text)}
+.btn-ink{background:var(--ink);border-color:var(--ink);color:#000;font-weight:500}
+.btn-ink:hover{background:var(--ink2);border-color:var(--ink2);color:#000}
+.btn-danger:hover{border-color:var(--red);color:var(--red)}
+.btn-sm{padding:4px 9px;font-size:10px}
+.btn-full{width:100%;justify-content:center;display:flex;align-items:center;gap:6px}
+.row{display:flex;gap:6px;align-items:flex-end}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+/* ── section headers ── */
+.sec-hdr{font-family:var(--display);font-size:16px;letter-spacing:.05em;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-hdr span{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400;letter-spacing:.05em}
+
+/* ── character cards ── */
+.char-card,.loc-card{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.char-card:hover,.loc-card:hover{border-color:var(--border2)}
+.char-card.selected,.loc-card.selected{border-color:var(--ink)}
+.card-top{display:flex;align-items:center;gap:10px}
+.char-avatar{width:36px;height:36px;border-radius:50%;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:16px;color:var(--ink);flex-shrink:0;overflow:hidden}
+.char-avatar img{width:100%;height:100%;object-fit:cover}
+.loc-icon{width:36px;height:36px;border-radius:var(--rs);background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden}
+.loc-icon img{width:100%;height:100%;object-fit:cover}
+.card-info{flex:1;min-width:0}
+.card-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.card-actions{display:flex;gap:4px;margin-left:auto}
+.icon-btn{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;transition:color .15s;line-height:1}
+.icon-btn:hover{color:var(--text)}
+.icon-btn.del:hover{color:var(--red)}
+
+/* ── SCRIPT EDITOR ── */
+.script-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.script-toolbar{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--s1);flex-wrap:wrap;align-items:center}
+.script-toolbar .label{margin:0}
+.panel-list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.panel-list::-webkit-scrollbar{width:3px}
+.panel-list::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+
+.panel-item{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:border-color .15s}
+.panel-item.selected{border-color:var(--ink)}
+.panel-header{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;background:var(--s3)}
+.panel-num{font-family:var(--display);font-size:18px;color:var(--ink);min-width:28px}
+.panel-title-input{flex:1;background:transparent;border:none;color:var(--text);font-family:var(--body);font-size:13px;font-weight:500;outline:none}
+.panel-title-input::placeholder{color:var(--muted)}
+.panel-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.panel-tags{display:flex;gap:5px;flex-wrap:wrap}
+.ptag{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:100px;border:1px solid;cursor:pointer;transition:all .15s}
+.ptag-char{border-color:rgba(160,110,255,.4);color:var(--purple);background:rgba(160,110,255,.08)}
+.ptag-char:hover,.ptag-char.active{background:rgba(160,110,255,.2);border-color:var(--purple)}
+.ptag-loc{border-color:rgba(45,224,192,.4);color:var(--teal);background:rgba(45,224,192,.08)}
+.ptag-loc:hover,.ptag-loc.active{background:rgba(45,224,192,.2);border-color:var(--teal)}
+.panel-prompt{font-size:12px;font-family:var(--mono);color:var(--muted);background:var(--s1);border-radius:var(--rs);padding:6px 8px;line-height:1.6;min-height:32px;cursor:text;transition:color .2s}
+.panel-thumb{width:100%;aspect-ratio:3/2;background:var(--s3);border-radius:var(--rs);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center}
+.panel-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.panel-thumb-empty{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.panel-gen-btn{width:100%;padding:7px;border:1px dashed var(--border2);border-radius:var(--rs);background:transparent;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+.panel-gen-btn:hover{border-color:var(--ink);color:var(--ink)}
+.panel-gen-btn.generating{border-color:var(--ink);color:var(--ink);animation:pulse-border 1s infinite}
+@keyframes pulse-border{0%,100%{opacity:1}50%{opacity:.4}}
+.gen-all-btn{background:var(--ink);border:none;border-radius:var(--rs);color:#000;font-family:var(--display);font-size:15px;letter-spacing:.06em;padding:9px 18px;cursor:pointer;transition:background .15s}
+.gen-all-btn:hover{background:var(--ink2)}
+.gen-all-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── COMPOSER ── */
+.composer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.composer-toolbar{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--s1);align-items:center;flex-wrap:wrap}
+.composer-canvas{flex:1;overflow:auto;padding:20px;background:var(--bg);display:flex;align-items:flex-start;justify-content:center}
+.comic-page{background:#fff;position:relative;flex-shrink:0}
+.comic-page.dark-bg{background:#1a1a1a}
+
+/* layout grids */
+.layout-grid{display:grid;width:100%;height:100%;gap:0}
+.comic-panel-cell{position:relative;overflow:hidden;cursor:pointer;background:#e8e8e8}
+.comic-panel-cell.dark-bg{background:#2a2a2a}
+.comic-panel-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.comic-panel-cell .empty-panel{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:28px;color:#ccc;user-select:none}
+.panel-border-overlay{position:absolute;inset:0;border:3px solid #000;pointer-events:none}
+.panel-number-badge{position:absolute;top:6px;left:6px;background:#000;color:#fff;font-family:var(--display);font-size:13px;padding:1px 6px;letter-spacing:.04em;z-index:2}
+.speech-bubble{position:absolute;background:#fff;border:2px solid #000;border-radius:12px;padding:6px 10px;font-family:'Bangers','Outfit',cursive;font-size:13px;color:#000;cursor:move;z-index:10;min-width:60px;max-width:180px;word-break:break-word;user-select:none}
+.speech-bubble::after{content:'';position:absolute;bottom:-10px;left:20px;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid #000}
+.speech-bubble::before{content:'';position:absolute;bottom:-7px;left:22px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid #fff;z-index:1}
+
+/* layout options */
+.layout-opts{display:flex;gap:6px}
+.layout-opt{width:40px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;display:grid;gap:1px;padding:3px;background:var(--s2);transition:border-color .15s}
+.layout-opt:hover{border-color:var(--border2)}
+.layout-opt.active{border-color:var(--ink)}
+.lo-cell{background:var(--faint);border-radius:1px}
+
+/* style selector */
+.style-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.style-opt{background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;cursor:pointer;transition:border-color .15s;text-align:center}
+.style-opt:hover{border-color:var(--border2)}
+.style-opt.active{border-color:var(--ink);background:rgba(240,232,48,.06)}
+.style-opt-name{font-size:12px;font-weight:500;color:var(--text)}
+.style-opt-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px}
+
+/* api config panel */
+.api-panel{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px}
+
+/* progress / toast */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 16px;z-index:999;transform:translateY(60px);opacity:0;transition:transform .3s,opacity .3s;max-width:300px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:var(--teal);color:var(--teal)}
+.toast.err{border-color:var(--red);color:var(--red)}
+
+/* ══ LORA TRAINER ══════════════════════════════════════════ */
+.trainer-main{flex:1;overflow-y:auto;padding:0}
+.trainer-main::-webkit-scrollbar{width:4px}
+.trainer-main::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+
+/* step nav */
+.step-nav{display:flex;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--s1);gap:0;flex-shrink:0}
+.step-item{display:flex;align-items:center;gap:8px;cursor:pointer;opacity:.4;transition:opacity .2s;padding:0 16px 0 0}
+.step-item.active{opacity:1}
+.step-item.done{opacity:.7}
+.step-num{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--muted);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0;transition:all .2s}
+.step-item.active .step-num{border-color:var(--ink);color:var(--ink);background:rgba(240,232,48,.12)}
+.step-item.done .step-num{background:var(--ink);border-color:var(--ink);color:#000}
+.step-name{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.step-item.active .step-name{color:var(--text)}
+.step-arrow{color:var(--faint);font-size:10px;padding-right:16px}
+
+/* step pages */
+.trainer-step{display:none;padding:20px;flex-direction:column;gap:16px}
+.trainer-step.active{display:flex}
+.trainer-section-title{font-family:var(--display);font-size:18px;letter-spacing:.04em;color:var(--ink)}
+.trainer-desc{font-size:12px;color:var(--muted);line-height:1.7;margin-top:-8px}
+
+/* seed upload grid */
+.seed-upload-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seed-slot{aspect-ratio:1;border:1px dashed var(--border2);border-radius:var(--rs);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;transition:border-color .2s;background:var(--s2)}
+.seed-slot:hover{border-color:var(--accent2)}
+.seed-slot.filled{border-style:solid;border-color:var(--accent)}
+.seed-slot input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.seed-slot img{width:100%;height:100%;object-fit:cover;display:block}
+.seed-slot-hint{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;pointer-events:none;padding:8px}
+.seed-remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);border:none;border-radius:4px;color:#fff;font-size:10px;cursor:pointer;padding:1px 5px;line-height:1.6;z-index:2}
+
+/* variation grid */
+.var-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+.var-card{position:relative;border-radius:var(--rs);overflow:hidden;border:2px solid transparent;cursor:pointer;transition:border-color .15s;aspect-ratio:2/3}
+.var-card img{width:100%;height:100%;object-fit:cover;display:block}
+.var-card.selected{border-color:var(--ink)}
+.var-card .var-check{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:var(--ink);display:none;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:700}
+.var-card.selected .var-check{display:flex}
+.var-card .var-caption-btn{position:absolute;bottom:4px;left:4px;right:4px;background:rgba(0,0,0,.65);border:none;border-radius:3px;color:#fff;font-size:9px;font-family:var(--mono);cursor:pointer;padding:2px 4px;display:none;text-align:center}
+.var-card:hover .var-caption-btn{display:block}
+.var-counter{font-family:var(--mono);font-size:11px;color:var(--accent2);margin-left:auto}
+
+/* caption editor */
+.caption-grid{display:flex;flex-direction:column;gap:8px}
+.caption-item{display:grid;grid-template-columns:56px 1fr;gap:8px;align-items:start;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:8px}
+.caption-thumb{width:56px;height:56px;object-fit:cover;border-radius:4px;display:block}
+.caption-ta{font-size:11px;font-family:var(--mono);padding:5px 7px;min-height:52px;line-height:1.5}
+
+/* progress */
+.train-progress-wrap{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+.train-prog-bar-track{height:8px;background:var(--s3);border-radius:4px;overflow:hidden}
+.train-prog-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;width:0%;transition:width .6s}
+.train-log{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:10px;font-family:var(--mono);font-size:10px;color:var(--muted);height:140px;overflow-y:auto;line-height:1.8}
+.train-log::-webkit-scrollbar{width:3px}
+.train-log::-webkit-scrollbar-thumb{background:var(--faint)}
+.train-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.train-stat{background:var(--s3);border-radius:var(--rs);padding:8px;text-align:center}
+.train-stat-val{font-family:var(--display);font-size:18px;color:var(--ink)}
+.train-stat-key{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px}
+
+/* variation gen toolbar */
+.var-toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px;background:var(--s2);border:1px solid var(--border);border-radius:var(--rs)}
+.var-toolbar .label{margin:0;white-space:nowrap}
+
+/* trainer next btn */
+.trainer-next{width:100%;padding:10px;background:var(--ink);border:none;border-radius:var(--rs);color:#000;font-family:var(--display);font-size:15px;letter-spacing:.04em;cursor:pointer;transition:background .15s}
+.trainer-next:hover{background:var(--ink2)}
+.trainer-next:disabled{opacity:.4;cursor:not-allowed}
+.trainer-back{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 14px;border-radius:var(--rs);cursor:pointer;transition:all .15s}
+.trainer-back:hover{border-color:var(--border2);color:var(--text)}
+
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+
+/* ── INPAINT MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--s1);border:1px solid var(--border2);border-radius:var(--r);width:min(92vw,900px);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hdr{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-title{font-family:var(--display);font-size:18px;letter-spacing:.05em;color:var(--ink);flex:1}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:2px 6px;transition:color .15s}
+.modal-close:hover{color:var(--red)}
+.modal-body{display:grid;grid-template-columns:1fr 280px;flex:1;overflow:hidden;min-height:0}
+.inpaint-canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:16px;overflow:hidden}
+.inpaint-canvas-wrap canvas{border-radius:var(--rs);display:block}
+#inpaintBase{position:absolute;pointer-events:none}
+#inpaintMask{position:absolute;cursor:crosshair;touch-action:none}
+.inpaint-panel{padding:14px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.inpaint-panel::-webkit-scrollbar{width:3px}
+.inpaint-tools{display:flex;gap:5px;flex-wrap:wrap}
+.tool-btn{padding:5px 10px;border:1px solid var(--border);border-radius:var(--rs);background:var(--s2);color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .15s}
+.tool-btn:hover{border-color:var(--border2);color:var(--text)}
+.tool-btn.active{border-color:var(--ink);color:var(--ink);background:rgba(240,232,48,.08)}
+.tool-btn.danger:hover{border-color:var(--red);color:var(--red)}
+.brush-row{display:flex;align-items:center;gap:8px}
+.brush-preview{width:24px;height:24px;border-radius:50%;background:rgba(255,80,80,.7);border:1px solid var(--border);flex-shrink:0;transition:width .1s,height .1s}
+
+/* ── HISTORY STRIP ── */
+.history-strip{display:flex;gap:5px;overflow-x:auto;padding:4px 0}
+.history-strip::-webkit-scrollbar{height:3px}
+.history-strip::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+.hist-thumb{width:52px;height:52px;border-radius:var(--rs);overflow:hidden;flex-shrink:0;border:2px solid transparent;cursor:pointer;position:relative;transition:border-color .15s}
+.hist-thumb:hover{border-color:var(--border2)}
+.hist-thumb.current{border-color:var(--ink)}
+.hist-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.hist-thumb .hist-label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);font-family:var(--mono);font-size:8px;color:#fff;padding:1px 3px;text-align:center}
+.hist-thumb .hist-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:9px;cursor:pointer;border-radius:2px;padding:0 3px;line-height:14px;display:none}
+.hist-thumb:hover .hist-del{display:block}
+.panel-hist-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+
+/* ══ GALLERY ═══════════════════════════════════════════════ */
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;padding:16px;overflow-y:auto;flex:1}
+.gal-grid::-webkit-scrollbar{width:4px}
+.gal-grid::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+.gal-card{position:relative;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--s2);aspect-ratio:2/3;cursor:pointer;transition:border-color .15s}
+.gal-card:hover{border-color:var(--border2)}
+.gal-card img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.72);display:none;flex-direction:column;justify-content:flex-end;padding:7px;gap:4px}
+.gal-card:hover .gal-overlay{display:flex}
+.gal-meta{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.65);line-height:1.5;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.gal-btns{display:flex;gap:3px}
+.gal-btn{flex:1;padding:3px 5px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:3px;color:#fff;font-size:9px;font-family:var(--mono);cursor:pointer;text-align:center;transition:background .15s}
+.gal-btn:hover{background:rgba(255,255,255,.22)}
+.gal-btn.del:hover{background:rgba(255,77,109,.4);border-color:var(--red)}
+.gal-toolbar{display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--s1);flex-shrink:0;flex-wrap:wrap}
+.gal-tag{display:inline-block;font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:100px;background:rgba(240,232,48,.06);border:1px solid rgba(240,232,48,.2);color:var(--ink);margin:2px;cursor:pointer;transition:background .15s}
+.gal-tag:hover,.gal-tag.on{background:rgba(240,232,48,.18);border-color:var(--ink)}
+.gal-empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:60px 20px;grid-column:1/-1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── TOPBAR ── -->
+<div class="topbar">
+  <div class="brand"><div class="brand-dot"></div>COMIX STUDIO</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('characters',this)">CHARACTERS</button>
+    <button class="nav-tab" onclick="showPage('locations',this)">LOCATIONS</button>
+    <button class="nav-tab" onclick="showPage('script',this)">SCRIPT</button>
+    <button class="nav-tab" onclick="showPage('composer',this)">COMPOSER</button>
+    <button class="nav-tab" onclick="showPage('trainer',this)">LORA TRAINER</button>
+    <button class="nav-tab" onclick="showPage('gallery',this)">GALLERY</button>
+    <button class="nav-tab" onclick="showPage('settings',this)">SETTINGS</button>
+  </div>
+  <div class="topbar-right">
+    <div class="api-dot" id="apiDot" onclick="checkApi()" title="click to test API"></div>
+    <span class="api-label" id="apiLabel" onclick="checkApi()">not connected</span>
+  </div>
+</div>
+
+<div class="workspace">
+
+<!-- ── LEFT SIDEBAR ── -->
+<div class="sidebar">
+
+  <!-- CHARACTERS PAGE -->
+  <div class="page active" id="page-characters">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Characters <span id="charCount"></span></div>
+
+      <div class="field">
+        <div class="label">name</div>
+        <input type="text" id="charName" placeholder="e.g. Maya">
+      </div>
+      <div class="field">
+        <div class="label">visual description</div>
+        <textarea id="charDesc" rows="3" placeholder="red hair, green eyes, freckles, leather jacket, mid-20s woman"></textarea>
+      </div>
+      <div class="field">
+        <div class="label">reference image (optional)</div>
+        <div class="upload-zone" id="charImgZone" style="border:1px dashed var(--border2);border-radius:var(--rs);min-height:70px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;transition:border-color .2s">
+          <input type="file" accept="image/*" id="charImgFile" style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="previewCharImg(event)">
+          <span id="charImgHint" style="font-family:var(--mono);font-size:10px;color:var(--muted)">click to upload reference</span>
+          <img id="charImgPreview" style="display:none;width:100%;height:70px;object-fit:cover" alt="">
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">LoRA name (optional)</div>
+        <input type="text" id="charLora" placeholder="my_character_lora">
+      </div>
+      <div class="field">
+        <div class="label">LoRA weight</div>
+        <input type="number" id="charLoraWeight" value="0.7" min="0.1" max="1.5" step="0.05" style="width:80px">
+      </div>
+      <div class="row">
+        <button class="btn btn-ink btn-full" onclick="saveChar()">+ add character</button>
+      </div>
+
+      <div style="margin-top:16px" id="charList"></div>
+    </div>
+  </div>
+
+  <!-- LOCATIONS PAGE -->
+  <div class="page" id="page-locations">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Locations <span id="locCount"></span></div>
+
+      <div class="field">
+        <div class="label">name</div>
+        <input type="text" id="locName" placeholder="e.g. Neon Alley">
+      </div>
+      <div class="field">
+        <div class="label">visual description</div>
+        <textarea id="locDesc" rows="3" placeholder="cyberpunk alley, neon signs, rain, night, puddles reflecting light"></textarea>
+      </div>
+      <div class="field">
+        <div class="label">time of day</div>
+        <select id="locTime">
+          <option value="">— unspecified —</option>
+          <option>daytime, bright sunlight</option>
+          <option>golden hour, warm light</option>
+          <option>dusk, purple sky</option>
+          <option>night, dark atmosphere</option>
+          <option>night, artificial lighting</option>
+          <option>overcast, flat light</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="label">reference image (optional)</div>
+        <div style="border:1px dashed var(--border2);border-radius:var(--rs);min-height:70px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden">
+          <input type="file" accept="image/*" id="locImgFile" style="position:absolute;inset:0;opacity:0;cursor:pointer" onchange="previewLocImg(event)">
+          <span id="locImgHint" style="font-family:var(--mono);font-size:10px;color:var(--muted)">click to upload reference</span>
+          <img id="locImgPreview" style="display:none;width:100%;height:70px;object-fit:cover" alt="">
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn-ink btn-full" onclick="saveLoc()">+ add location</button>
+      </div>
+
+      <div style="margin-top:16px" id="locList"></div>
+    </div>
+  </div>
+
+  <!-- SCRIPT SIDEBAR -->
+  <div class="page" id="page-script">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Story</div>
+      <div class="field">
+        <div class="label">comic title</div>
+        <input type="text" id="comicTitle" placeholder="Issue #1: The Beginning">
+      </div>
+      <div class="field">
+        <div class="label">overall style</div>
+        <div class="style-grid" id="styleGrid">
+          <div class="style-opt active" onclick="setStyle('photorealistic',this)" data-style="photorealistic">
+            <div class="style-opt-name">Photorealistic</div>
+            <div class="style-opt-sub">cinematic, detailed</div>
+          </div>
+          <div class="style-opt" onclick="setStyle('comic book',this)" data-style="comic book">
+            <div class="style-opt-name">Comic Book</div>
+            <div class="style-opt-sub">Marvel/DC ink style</div>
+          </div>
+          <div class="style-opt" onclick="setStyle('manga',this)" data-style="manga">
+            <div class="style-opt-name">Manga</div>
+            <div class="style-opt-sub">anime, B&W, screentone</div>
+          </div>
+          <div class="style-opt" onclick="setStyle('cartoon',this)" data-style="cartoon">
+            <div class="style-opt-name">Cartoon</div>
+            <div class="style-opt-sub">stylised, bold lines</div>
+          </div>
+          <div class="style-opt" onclick="setStyle('noir',this)" data-style="noir">
+            <div class="style-opt-name">Noir</div>
+            <div class="style-opt-sub">B&W, high contrast</div>
+          </div>
+          <div class="style-opt" onclick="setStyle('watercolor',this)" data-style="watercolor">
+            <div class="style-opt-name">Watercolor</div>
+            <div class="style-opt-sub">painted, soft edges</div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">global negative prompt</div>
+        <textarea id="globalNeg" rows="2">blurry, low quality, watermark, text, logo, bad anatomy, deformed hands, ugly</textarea>
+      </div>
+      <div class="field">
+        <div class="label">steps</div>
+        <input type="number" id="genSteps" value="28" min="10" max="60" style="width:70px">
+      </div>
+      <div class="field">
+        <div class="label">cfg scale</div>
+        <input type="number" id="genCfg" value="7" min="1" max="15" step="0.5" style="width:70px">
+      </div>
+      <div class="field">
+        <div class="label">panel size</div>
+        <select id="panelSize">
+          <option value="512x768">512×768 (portrait)</option>
+          <option value="768x512">768×512 (landscape)</option>
+          <option value="512x512">512×512 (square)</option>
+          <option value="768x768">768×768 (sq large)</option>
+        </select>
+      </div>
+      <button class="btn btn-ink btn-full" style="margin-top:4px" onclick="addPanel()">+ add panel</button>
+    </div>
+  </div>
+
+  <!-- COMPOSER SIDEBAR -->
+  <div class="page" id="page-composer">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Layout</div>
+      <div class="field">
+        <div class="label">page layout</div>
+        <div class="layout-opts" id="layoutOpts">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+      <div class="field">
+        <div class="label">page size</div>
+        <select id="pageSize" onchange="updateComposer()">
+          <option value="600x900">A5 (600×900)</option>
+          <option value="700x1000" selected>Comic (700×1000)</option>
+          <option value="800x1100">Letter (800×1100)</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="label">gutter size (px)</div>
+        <input type="number" id="gutterSize" value="6" min="0" max="30" onchange="updateComposer()">
+      </div>
+      <div class="field">
+        <div class="label">page background</div>
+        <select id="pageBg" onchange="updateComposer()">
+          <option value="white">white</option>
+          <option value="black">black</option>
+          <option value="cream">#f5f0e8 cream</option>
+        </select>
+      </div>
+      <div class="field" style="margin-top:4px">
+        <div class="label">add speech bubble</div>
+        <textarea id="bubbleText" rows="2" placeholder="dialogue text..."></textarea>
+        <button class="btn btn-sm" style="margin-top:5px" onclick="addBubble()">add bubble to selected panel</button>
+      </div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-ink btn-full" onclick="exportComic()">export page (PNG)</button>
+        <button class="btn btn-full" onclick="exportPDF()">export PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALLERY SIDEBAR -->
+  <div class="page" id="page-gallery">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Gallery</div>
+      <div class="field">
+        <div class="label">search</div>
+        <input type="text" id="csGalSearch" placeholder="search prompts…"
+          oninput="csGalFilter.search=this.value;renderCSGallery()" style="font-size:12px">
+      </div>
+      <div class="field">
+        <div class="label">filter by tag</div>
+        <div id="csGalTagList" style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px"></div>
+      </div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-full" onclick="loadCSGallery()">↻ refresh</button>
+        <button class="btn btn-full" onclick="clearCSGalleryFilter()">clear filter</button>
+      </div>
+      <div style="margin-top:12px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7">
+        All generated panel images are saved here automatically.<br><br>
+        Hover an image to:<br>
+        → send to img2img<br>
+        → use prompt<br>
+        → delete
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div class="page" id="page-settings">
+    <div class="sidebar-section">
+      <div class="sec-hdr">Settings</div>
+      <div class="api-panel">
+        <div class="field">
+          <div class="label">SD API base URL</div>
+          <input type="text" id="apiBase" value="http://localhost:3000" placeholder="http://localhost:3000">
+        </div>
+        <div class="field">
+          <div class="label">x-api-key</div>
+          <input type="text" id="apiKey" placeholder="your secret key">
+        </div>
+        <button class="btn btn-full" onclick="checkApi()" style="margin-top:4px">test connection</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;margin-top:8px">
+        Points to your SD WebUI API wrapper.<br>
+        Make sure your RunPod instance is running.<br><br>
+        <span style="color:var(--ink)">Hotkeys:</span><br>
+        N — new panel<br>
+        G — generate selected panel<br>
+        ← → — prev/next panel
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- ── MAIN CONTENT ── -->
+<div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+  <!-- TRAINER SIDEBAR -->
+  <div class="page" id="page-trainer">
+    <div class="sidebar-section">
+      <div class="sec-hdr">LoRA Trainer</div>
+
+      <div class="field">
+        <div class="field-label" style="font-size:11px;color:var(--muted);line-height:1.7">
+          Train a LoRA from images you generate — no real photos needed.<br><br>
+          <span style="color:var(--ink)">Step 1</span> — Upload 1–3 seed photos<br>
+          <span style="color:var(--ink)">Step 2</span> — Generate 30+ variations<br>
+          <span style="color:var(--ink)">Step 3</span> — Pick the best ones<br>
+          <span style="color:var(--ink)">Step 4</span> — Train &amp; export
+        </div>
+      </div>
+
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px">
+        <div class="label">active training job</div>
+        <div id="trainerSidebarStatus" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px">none</div>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="label">saved loras</div>
+        <div id="savedLoraList" style="margin-top:6px;display:flex;flex-direction:column;gap:5px"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- ── MAIN CONTENT ── -->
+<div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+  <!-- CHARACTERS main area -->
+  <div class="page active" id="main-characters" style="flex:1;padding:2rem;overflow-y:auto;align-items:flex-start">
+    <div style="width:100%;max-width:700px;margin:0 auto">
+      <div class="sec-hdr" style="font-size:28px;margin-bottom:6px">CAST</div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Define your characters once. They'll be automatically woven into panel prompts wherever you tag them.</p>
+      <div id="charGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+      <div id="charEmpty" style="color:var(--muted);font-family:var(--mono);font-size:12px;margin-top:20px">No characters yet — add one in the sidebar.</div>
+    </div>
+  </div>
+
+  <!-- LOCATIONS main area -->
+  <div class="page" id="main-locations" style="flex:1;padding:2rem;overflow-y:auto;align-items:flex-start">
+    <div style="width:100%;max-width:700px;margin:0 auto">
+      <div class="sec-hdr" style="font-size:28px;margin-bottom:6px">LOCATIONS</div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Define your world's locations. Tag them in panels to lock the scene context.</p>
+      <div id="locGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+      <div id="locEmpty" style="color:var(--muted);font-family:var(--mono);font-size:12px;margin-top:20px">No locations yet — add one in the sidebar.</div>
+    </div>
+  </div>
+
+  <!-- SCRIPT main area -->
+  <div class="page" id="main-script" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div class="script-toolbar">
+      <span class="label">panels:</span>
+      <span id="panelCount" style="font-family:var(--mono);font-size:11px;color:var(--ink)">0</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-sm" onclick="addPanel()">+ panel</button>
+      <button class="gen-all-btn" id="genAllBtn" onclick="generateAll()">GENERATE ALL</button>
+    </div>
+    <div class="panel-list" id="panelList">
+      <div id="panelEmpty" style="font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:40px 0">
+        No panels yet.<br>Add a panel in the sidebar to start writing your script.
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPOSER main area -->
+  <div class="page" id="main-composer" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div class="composer-toolbar">
+      <span style="font-family:var(--display);font-size:14px;letter-spacing:.05em;color:var(--ink)">PAGE LAYOUT</span>
+      <div style="flex:1"></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="composerInfo"></span>
+    </div>
+    <div class="composer-canvas" id="composerCanvas">
+      <div class="comic-page" id="comicPage"></div>
+    </div>
+  </div>
+
+  <!-- GALLERY main area -->
+  <div class="page" id="main-gallery" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div class="gal-toolbar">
+      <span style="font-family:var(--display);font-size:15px;letter-spacing:.05em;color:var(--ink)">GALLERY</span>
+      <span id="csGalCount" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+      <div style="flex:1"></div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="csGalActiveFilter"></span>
+    </div>
+    <div class="gal-grid" id="csGalGrid">
+      <div class="gal-empty">click refresh in the sidebar to load images</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS main area -->
+  <div class="page" id="main-settings" style="flex:1;padding:2rem;overflow-y:auto">
+    <div style="max-width:500px;margin:0 auto">
+      <div class="sec-hdr" style="font-size:28px;margin-bottom:6px">SETTINGS</div>
+      <p style="color:var(--muted);font-size:13px">Configure your API connection and generation defaults in the sidebar.</p>
+    </div>
+  </div>
+
+  <!-- ══ TRAINER main area ══ -->
+  <div class="page" id="main-trainer" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- step nav -->
+    <div class="step-nav">
+      <div class="step-item active" id="stepNav0" onclick="goTrainerStep(0)">
+        <div class="step-num">1</div><div class="step-name">Seed photos</div>
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item" id="stepNav1" onclick="goTrainerStep(1)">
+        <div class="step-num">2</div><div class="step-name">Generate variations</div>
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item" id="stepNav2" onclick="goTrainerStep(2)">
+        <div class="step-num">3</div><div class="step-name">Pick &amp; caption</div>
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item" id="stepNav3" onclick="goTrainerStep(3)">
+        <div class="step-num">4</div><div class="step-name">Train</div>
+      </div>
+    </div>
+
+    <div class="trainer-main" id="trainerMain">
+
+      <!-- ── STEP 1: SEED PHOTOS ── -->
+      <div class="trainer-step active" id="tstep-0">
+        <div class="trainer-section-title">Upload seed photos</div>
+        <div class="trainer-desc">Upload 1–3 clear photos of your character. Front-facing, good lighting, no glasses or hats. These are just the starting point — the AI will generate 30+ variations from them.</div>
+
+        <div class="field">
+          <div class="label">character name (becomes the LoRA trigger word)</div>
+          <input type="text" id="loraCharName" placeholder="e.g. maya_char" style="font-family:var(--mono)">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px">Use lowercase, no spaces. You'll type this in prompts to activate the LoRA.</div>
+        </div>
+
+        <div class="field">
+          <div class="label">describe the character briefly</div>
+          <textarea id="loraCharDesc" rows="2" placeholder="young woman, red hair, green eyes, freckles"></textarea>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px">Used to generate variations. Be specific about face features.</div>
+        </div>
+
+        <div class="field">
+          <div class="label">seed photos (1–3)</div>
+          <div class="seed-upload-grid" id="seedUploadGrid">
+            <div class="seed-slot" id="seedSlot0">
+              <input type="file" accept="image/*" onchange="addSeedImg(0,event)">
+              <div class="seed-slot-hint">+ photo 1<br><span style="font-size:9px;color:var(--faint)">front-facing</span></div>
+            </div>
+            <div class="seed-slot" id="seedSlot1">
+              <input type="file" accept="image/*" onchange="addSeedImg(1,event)">
+              <div class="seed-slot-hint">+ photo 2<br><span style="font-size:9px;color:var(--faint)">optional</span></div>
+            </div>
+            <div class="seed-slot" id="seedSlot2">
+              <input type="file" accept="image/*" onchange="addSeedImg(2,event)">
+              <div class="seed-slot-hint">+ photo 3<br><span style="font-size:9px;color:var(--faint)">optional</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">base model</div>
+          <select id="loraBaseModel">
+            <option value="epiCRealism_naturalSinRC1VAE.safetensors">epiCRealism (photorealistic)</option>
+            <option value="Realistic_Vision_V6.0_NV_B1.safetensors">Realistic Vision V6</option>
+          </select>
+        </div>
+
+        <button class="trainer-next" onclick="goTrainerStep(1)">Next — generate variations →</button>
+      </div>
+
+      <!-- ── STEP 2: GENERATE VARIATIONS ── -->
+      <div class="trainer-step" id="tstep-1">
+        <div class="trainer-section-title">Generate variations</div>
+        <div class="trainer-desc">The AI will generate many versions of your character — different poses, expressions, lighting, and angles. These become the training images. Aim for 30+.</div>
+
+        <div class="var-toolbar">
+          <span class="label">variation type:</span>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <span class="ptag ptag-char active" id="vtag-pose"     onclick="toggleVtag('pose',this)">poses</span>
+            <span class="ptag ptag-char active" id="vtag-lighting" onclick="toggleVtag('lighting',this)">lighting</span>
+            <span class="ptag ptag-char active" id="vtag-angle"    onclick="toggleVtag('angle',this)">camera angles</span>
+            <span class="ptag ptag-char"        id="vtag-expression" onclick="toggleVtag('expression',this)">expressions</span>
+            <span class="ptag ptag-char"        id="vtag-outfit"   onclick="toggleVtag('outfit',this)">outfits</span>
+          </div>
+          <div style="flex:1"></div>
+          <div class="field" style="margin:0;display:flex;align-items:center;gap:6px">
+            <span class="label">denoise:</span>
+            <input type="range" id="varDenoise" min="0.35" max="0.75" step="0.05" value="0.55" style="width:80px">
+            <span id="varDenoiseVal" style="font-family:var(--mono);font-size:10px;color:var(--accent2);min-width:28px">0.55</span>
+          </div>
+        </div>
+
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:6px 10px;background:var(--s2);border-radius:var(--rs)">
+          💡 <strong>Denoise</strong> controls how different each variation is. Low (0.35) = very similar to your seed. High (0.75) = more creative but may drift from your character. Start at 0.55.
+        </div>
+
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-ink" onclick="generateVariationBatch()" id="genVarBtn" style="flex:1">
+            Generate 8 variations
+          </button>
+          <button class="btn" onclick="clearVariations()" style="padding:8px 12px">clear all</button>
+          <span class="var-counter" id="varCount">0 generated</span>
+        </div>
+
+        <div class="var-grid" id="varGrid">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);grid-column:1/-1;padding:20px 0;text-align:center">
+            No variations yet — click Generate above
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="trainer-back" onclick="goTrainerStep(0)">← Back</button>
+          <button class="trainer-next" id="toStep2Btn" onclick="goTrainerStep(2)" style="flex:1" disabled>Next — pick best images →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: PICK & CAPTION ── -->
+      <div class="trainer-step" id="tstep-2">
+        <div class="trainer-section-title">Pick &amp; caption</div>
+        <div class="trainer-desc">Select the best images — aim for 30+. Good training images: clear face, no artifacts, varied poses. Bad: blurry, wrong face, missing limbs. Then review the auto-generated captions.</div>
+
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted)">selected:</div>
+          <div id="selectedCount" style="font-family:var(--display);font-size:20px;color:var(--ink)">0</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">/ 30+ recommended</div>
+          <div style="flex:1"></div>
+          <button class="btn btn-sm" onclick="selectAllVariations()">select all</button>
+          <button class="btn btn-sm" onclick="deselectAllVariations()">clear</button>
+        </div>
+
+        <!-- selection grid -->
+        <div class="var-grid" id="selectGrid"></div>
+
+        <!-- caption section -->
+        <div id="captionSection" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div class="trainer-section-title" style="font-size:15px">Review captions</div>
+            <button class="btn btn-sm" onclick="autoCaption()" id="autoCaptionBtn">✨ auto-caption all</button>
+          </div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.7">
+            Captions tell the AI what's in each image. Good captions = better LoRA.<br>
+            Auto-caption uses AI to describe each image. Edit any that look wrong.
+          </div>
+          <div class="caption-grid" id="captionGrid"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="trainer-back" onclick="goTrainerStep(1)">← Back</button>
+          <button class="trainer-next" id="toStep3Btn" onclick="prepareTraining()" style="flex:1" disabled>Next — set up training →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 4: TRAIN ── -->
+      <div class="trainer-step" id="tstep-3">
+        <div class="trainer-section-title">Train your LoRA</div>
+        <div class="trainer-desc">Everything is ready. Training takes 60–90 minutes on a good GPU. You can close this tab and come back — training runs on the server.</div>
+
+        <!-- config summary -->
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-family:var(--mono);font-size:11px;line-height:2;color:var(--muted)">
+          <div>Character name: <span id="trainSummaryName" style="color:var(--text)">—</span></div>
+          <div>Training images: <span id="trainSummaryCount" style="color:var(--text)">—</span></div>
+          <div>Base model: <span id="trainSummaryModel" style="color:var(--text)">—</span></div>
+          <div>Estimated time: <span id="trainSummaryETA" style="color:var(--ink)">~60–90 min</span></div>
+        </div>
+
+        <!-- advanced (collapsed) -->
+        <details style="border:1px solid var(--border);border-radius:var(--rs);overflow:hidden">
+          <summary style="padding:10px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);list-style:none;background:var(--s2)">
+            ⚙ Advanced settings (optional — defaults are fine)
+          </summary>
+          <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field" style="margin:0">
+              <div class="label">network rank (detail)</div>
+              <select id="loraRank">
+                <option value="16">16 — subtle style</option>
+                <option value="32" selected>32 — balanced</option>
+                <option value="64">64 — strong likeness</option>
+                <option value="128">128 — maximum detail</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0">
+              <div class="label">training epochs</div>
+              <input type="number" id="loraEpochs" value="20" min="5" max="50">
+            </div>
+            <div class="field" style="margin:0">
+              <div class="label">learning rate</div>
+              <select id="loraLR">
+                <option value="1e-4" selected>1e-4 (default)</option>
+                <option value="5e-5">5e-5 (conservative)</option>
+                <option value="2e-4">2e-4 (aggressive)</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0">
+              <div class="label">batch size</div>
+              <select id="loraBatch">
+                <option value="1">1 (low VRAM)</option>
+                <option value="2" selected>2 (recommended)</option>
+                <option value="4">4 (high VRAM)</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <!-- progress area (hidden until training starts) -->
+        <div class="train-progress-wrap" id="trainProgressWrap" style="display:none">
+          <div class="train-stat-row" id="trainStats">
+            <div class="train-stat"><div class="train-stat-val" id="statEpoch">0</div><div class="train-stat-key">epoch</div></div>
+            <div class="train-stat"><div class="train-stat-val" id="statStep">0</div><div class="train-stat-key">step</div></div>
+            <div class="train-stat"><div class="train-stat-val" id="statLoss">—</div><div class="train-stat-key">loss</div></div>
+            <div class="train-stat"><div class="train-stat-val" id="statETA">—</div><div class="train-stat-key">ETA</div></div>
+          </div>
+          <div class="train-prog-bar-track">
+            <div class="train-prog-bar-fill" id="trainProgFill"></div>
+          </div>
+          <div class="train-log" id="trainLog">Waiting to start…</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm" onclick="cancelTraining()" id="cancelTrainBtn">cancel training</button>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;align-self:center" id="trainStatusLabel">idle</span>
+          </div>
+        </div>
+
+        <!-- success state -->
+        <div id="trainSuccess" style="display:none;background:rgba(45,224,192,.08);border:1px solid rgba(45,224,192,.3);border-radius:var(--rs);padding:14px">
+          <div style="font-family:var(--display);font-size:22px;color:var(--teal);margin-bottom:6px;text-align:center">LORA TRAINED ✓</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">saved to WebUI LoRA folder:</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--teal);margin-bottom:12px;text-align:center;word-break:break-all" id="trainSuccessPath"></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-ink" style="width:100%;font-family:var(--display);font-size:15px;letter-spacing:.04em" onclick="downloadLoraFile()">
+              ⬇ Download .safetensors file
+            </button>
+            <button class="btn" style="width:100%" onclick="addLoraToCharacter()">
+              + Add to character in Comic Studio
+            </button>
+          </div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;line-height:1.7;border-top:1px solid rgba(45,224,192,.2);padding-top:10px">
+            💾 The LoRA is already saved in your network volume at the path above.<br>
+            The download gives you a local backup on your own machine.
+          </div>
+        </div>
+
+        <!-- LoRA test grid -->
+        <div id="loraTestSection" style="display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-family:var(--display);font-size:15px;color:var(--ink)">TEST RESULTS</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">4 prompts — validates LoRA is working</div>
+            <button class="btn btn-sm" onclick="runLoraTest()" id="rerunTestBtn" style="margin-left:auto">↺ rerun test</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="loraTestGrid"></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;line-height:1.7;padding:8px;background:var(--s2);border-radius:var(--rs)">
+            ✅ <strong style="color:var(--text)">Good signs:</strong> consistent face, style matches description, trigger word working.<br>
+            ⚠️ <strong style="color:var(--text)">Warning signs:</strong> different face each image, very generic results, artifacts. If poor, try increasing epochs or adding more varied training images.
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="trainer-back" id="trainBackBtn" onclick="goTrainerStep(2)">← Back</button>
+          <button class="trainer-next" id="startTrainBtn" onclick="startTraining()" style="flex:1">
+            Start training →
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /trainerMain -->
+  </div><!-- /main-trainer -->
+</div><!-- /workspace -->
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     INPAINT MODAL
+══════════════════════════════════════════ -->
+<div class="modal-overlay" id="inpaintModal">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <div class="modal-title">FIX PANEL <span id="inpaintPanelNum" style="color:var(--muted);font-size:14px"></span></div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted)">paint mask → describe fix → generate</div>
+      <button class="modal-close" onclick="closeInpaint()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Canvas area -->
+      <div class="inpaint-canvas-wrap" id="inpaintCanvasWrap">
+        <canvas id="inpaintBase"></canvas>
+        <canvas id="inpaintMask"
+          onmousedown="startDraw(event)" onmousemove="doDraw(event)" onmouseup="stopDraw()"
+          onmouseleave="stopDraw()"
+          ontouchstart="startDraw(event)" ontouchmove="doDraw(event)" ontouchend="stopDraw()">
+        </canvas>
+      </div>
+
+      <!-- Controls -->
+      <div class="inpaint-panel">
+        <div>
+          <div class="label" style="margin-bottom:6px">tools</div>
+          <div class="inpaint-tools">
+            <button class="tool-btn active" id="toolBrush" onclick="setTool('brush')">● brush</button>
+            <button class="tool-btn" id="toolEraser" onclick="setTool('eraser')">◌ eraser</button>
+            <button class="tool-btn danger" onclick="clearMask()">✕ clear mask</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:6px">brush size — <span id="brushSizeLabel">32</span>px</div>
+          <div class="brush-row">
+            <input type="range" id="brushSize" min="4" max="120" value="32" step="2"
+              oninput="brushSizeLabel.textContent=this.value;updateBrushPreview()">
+            <div class="brush-preview" id="brushPreview"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:6px">mask opacity</div>
+          <input type="range" id="maskOpacity" min="20" max="90" value="55" step="5"
+            oninput="updateMaskOpacity()">
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:5px">what to generate in masked area</div>
+          <textarea id="inpaintPrompt" rows="3" placeholder="correct face, sharp eyes, realistic skin, same character"></textarea>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:5px">negative</div>
+          <textarea id="inpaintNeg" rows="2">deformed, blurry, bad anatomy, ugly, low quality</textarea>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <div class="label" style="margin-bottom:4px">denoise</div>
+            <input type="number" id="inpaintDenoise" value="0.75" min="0.1" max="1" step="0.05" style="width:75px">
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px">steps</div>
+            <input type="number" id="inpaintSteps" value="28" min="10" max="60" style="width:60px">
+          </div>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:4px">mask mode</div>
+          <select id="inpaintMaskMode">
+            <option value="0">inpaint masked region</option>
+            <option value="1">inpaint everything except mask</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:4px">inpaint fill</div>
+          <select id="inpaintFill">
+            <option value="1">original (preserve context)</option>
+            <option value="0">fill (avg colour)</option>
+            <option value="2">latent noise</option>
+            <option value="3">latent nothing</option>
+          </select>
+        </div>
+
+        <button class="btn btn-ink btn-full" id="inpaintGenBtn" onclick="runInpaint()" style="margin-top:auto">
+          ▶ generate fix
+        </button>
+        <button class="btn btn-full" onclick="applyInpaintResult()" id="inpaintApplyBtn" style="display:none">
+          ✓ apply to panel
+        </button>
+        <div id="inpaintResultThumb" style="display:none;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border)">
+          <img id="inpaintResultImg" style="width:100%;display:block" alt="result">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let chars    = JSON.parse(localStorage.getItem('cs_chars')    || '[]');
+let locs     = JSON.parse(localStorage.getItem('cs_locs')     || '[]');
+let panels   = JSON.parse(localStorage.getItem('cs_panels')   || '[]');
+let selPanelIdx = -1;
+let selComposerPanel = 0;
+let comicStyle = 'photorealistic';
+let currentLayout = 0;
+
+const STYLE_SUFFIXES = {
+  'photorealistic': 'photorealistic, cinematic lighting, 8k, detailed, sharp focus',
+  'comic book':     'comic book art, bold ink outlines, flat colors, halftone, Marvel style',
+  'manga':          'manga style, black and white, screentone shading, detailed linework, anime',
+  'cartoon':        'cartoon style, bold outlines, vibrant colors, stylized',
+  'noir':           'noir style, black and white, high contrast, dramatic shadows, film noir',
+  'watercolor':     'watercolor illustration, soft edges, painted texture, artistic',
+};
+
+const LAYOUTS = [
+  { name:'2×2', cols:2, rows:2, cells:[1,1,1,1] },
+  { name:'3+1', cols:1, rows:3, cells:[{c:2,r:1},{c:1,r:1},{c:1,r:1}], custom: true,
+    template:`grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr 1fr`,
+    areas:`"a a" "b c" "d e"`, cellCount:5 },
+  { name:'1+2', cols:1, rows:2, custom:true,
+    template:`grid-template-columns:1fr 1fr;grid-template-rows:2fr 1fr`,
+    areas:`"a a" "b c"`, cellCount:3 },
+  { name:'1+3', cols:1, rows:2, custom:true,
+    template:`grid-template-columns:1fr 1fr 1fr;grid-template-rows:2fr 1fr`,
+    areas:`"a a a" "b c d"`, cellCount:4 },
+  { name:'1row', cols:1, rows:1, cells:[1] },
+  { name:'3row', cols:1, rows:3, cells:[1,1,1] },
+  { name:'2+2+1', cols:1, rows:3, custom:true,
+    template:`grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr 1.5fr`,
+    areas:`"a b" "c d" "e e"`, cellCount:5 },
+];
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const save = () => {
+  localStorage.setItem('cs_chars',  JSON.stringify(chars));
+  localStorage.setItem('cs_locs',   JSON.stringify(locs));
+  localStorage.setItem('cs_panels', JSON.stringify(panels));
+};
+function toast(msg, type=''){
+  const t=$('toast'); t.textContent=msg; t.className='toast show '+(type);
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function getBase(){ return $('apiBase').value.replace(/\/$/,''); }
+function getHdrs(){ return {'Content-Type':'application/json','x-api-key':$('apiKey').value}; }
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function showPage(name, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  $('page-'+name).classList.add('active');
+  $('main-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(name==='composer') updateComposer();
+}
+
+/* ══════════════════════════════════════════
+   STYLE
+══════════════════════════════════════════ */
+function setStyle(s, el){
+  comicStyle = s;
+  document.querySelectorAll('.style-opt').forEach(o=>o.classList.remove('active'));
+  el.classList.add('active');
+  renderPanels();
+}
+
+/* ══════════════════════════════════════════
+   API CHECK
+══════════════════════════════════════════ */
+async function checkApi(){
+  const dot=$('apiDot'), lbl=$('apiLabel');
+  dot.className='api-dot loading'; lbl.textContent='checking...';
+  try{
+    const r=await fetch(getBase()+'/health',{signal:AbortSignal.timeout(5000)});
+    const d=await r.json();
+    if(d.status==='ok'){ dot.className='api-dot online'; lbl.textContent='SD online'; }
+    else { dot.className='api-dot error'; lbl.textContent='SD offline'; }
+  }catch{ dot.className='api-dot error'; lbl.textContent='unreachable'; }
+}
+
+/* ══════════════════════════════════════════
+   CHARACTERS
+══════════════════════════════════════════ */
+let charImgBase64 = null;
+function previewCharImg(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    charImgBase64=ev.target.result.split(',')[1];
+    $('charImgPreview').src=ev.target.result;
+    $('charImgPreview').style.display='block';
+    $('charImgHint').style.display='none';
+  };
+  r.readAsDataURL(f);
+}
+
+function saveChar(){
+  const name=$('charName').value.trim();
+  const desc=$('charDesc').value.trim();
+  if(!name||!desc){ toast('name and description required','err'); return; }
+  chars.push({
+    id:Date.now(), name, desc,
+    img: charImgBase64||null,
+    lora: $('charLora').value.trim(),
+    loraWeight: parseFloat($('charLoraWeight').value)||0.7
+  });
+  charImgBase64=null;
+  $('charName').value=''; $('charDesc').value=''; $('charLora').value='';
+  $('charImgPreview').style.display='none'; $('charImgHint').style.display='block';
+  $('charImgFile').value='';
+  save(); renderChars(); toast(name+' added','ok');
+}
+
+function deleteChar(id){
+  chars=chars.filter(c=>c.id!==id); save(); renderChars();
+}
+
+function renderChars(){
+  const list=$('charList'); const grid=$('charGrid');
+  $('charCount').textContent=`(${chars.length})`;
+  $('charEmpty').style.display=chars.length?'none':'block';
+
+  // sidebar mini list
+  list.innerHTML=chars.map(c=>`
+    <div class="char-card">
+      <div class="card-top">
+        <div class="char-avatar">${c.img?`<img src="data:image/png;base64,${c.img}" alt="">`:`${initials(c.name)}`}</div>
+        <div class="card-info">
+          <div class="card-name">${c.name}</div>
+          <div class="card-sub">${c.desc.slice(0,40)}${c.desc.length>40?'…':''}</div>
+        </div>
+        <div class="card-actions"><button class="icon-btn del" onclick="deleteChar(${c.id})">✕</button></div>
+      </div>
+    </div>`).join('');
+
+  // main grid
+  grid.innerHTML=chars.map(c=>`
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <div style="height:100px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:40px;color:var(--ink)">
+        ${c.img?`<img src="data:image/png;base64,${c.img}" style="width:100%;height:100%;object-fit:cover" alt="">`:`${initials(c.name)}`}
+      </div>
+      <div style="padding:10px 12px">
+        <div style="font-weight:500;font-size:14px">${c.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--mono)">${c.desc.slice(0,60)}${c.desc.length>60?'…':''}</div>
+        ${c.lora?`<div style="font-size:10px;color:var(--purple);margin-top:4px;font-family:var(--mono)">LoRA: ${c.lora} ×${c.loraWeight}</div>`:''}
+      </div>
+    </div>`).join('');
+
+  renderPanels();
+}
+
+/* ══════════════════════════════════════════
+   LOCATIONS
+══════════════════════════════════════════ */
+let locImgBase64 = null;
+function previewLocImg(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    locImgBase64=ev.target.result.split(',')[1];
+    $('locImgPreview').src=ev.target.result;
+    $('locImgPreview').style.display='block';
+    $('locImgHint').style.display='none';
+  };
+  r.readAsDataURL(f);
+}
+
+function saveLoc(){
+  const name=$('locName').value.trim();
+  const desc=$('locDesc').value.trim();
+  if(!name||!desc){ toast('name and description required','err'); return; }
+  locs.push({
+    id:Date.now(), name, desc,
+    time: $('locTime').value,
+    img: locImgBase64||null
+  });
+  locImgBase64=null;
+  $('locName').value=''; $('locDesc').value=''; $('locTime').value='';
+  $('locImgPreview').style.display='none'; $('locImgHint').style.display='block';
+  save(); renderLocs(); toast(name+' added','ok');
+}
+
+function deleteLoc(id){
+  locs=locs.filter(l=>l.id!==id); save(); renderLocs();
+}
+
+function renderLocs(){
+  const list=$('locList'); const grid=$('locGrid');
+  $('locCount').textContent=`(${locs.length})`;
+  $('locEmpty').style.display=locs.length?'none':'block';
+
+  list.innerHTML=locs.map(l=>`
+    <div class="loc-card">
+      <div class="card-top">
+        <div class="loc-icon">${l.img?`<img src="data:image/png;base64,${l.img}" alt="">`:`🗺`}</div>
+        <div class="card-info">
+          <div class="card-name">${l.name}</div>
+          <div class="card-sub">${l.desc.slice(0,40)}${l.desc.length>40?'…':''}</div>
+        </div>
+        <div class="card-actions"><button class="icon-btn del" onclick="deleteLoc(${l.id})">✕</button></div>
+      </div>
+    </div>`).join('');
+
+  grid.innerHTML=locs.map(l=>`
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <div style="height:100px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:40px">
+        ${l.img?`<img src="data:image/png;base64,${l.img}" style="width:100%;height:100%;object-fit:cover" alt="">`: `🗺`}
+      </div>
+      <div style="padding:10px 12px">
+        <div style="font-weight:500;font-size:14px">${l.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--mono)">${l.desc.slice(0,60)}${l.desc.length>60?'…':''}</div>
+        ${l.time?`<div style="font-size:10px;color:var(--teal);margin-top:4px;font-family:var(--mono)">${l.time}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════
+   PANELS / SCRIPT
+══════════════════════════════════════════ */
+function addPanel(){
+  panels.push({
+    id: Date.now(),
+    title: '',
+    action: '',
+    charIds: [],
+    locId: null,
+    customPrompt: '',
+    image: null,
+    seed: -1,
+  });
+  save(); renderPanels(); selPanelIdx=panels.length-1;
+  toast('panel '+(panels.length)+' added');
+}
+
+function deletePanel(idx){
+  panels.splice(idx,1); save(); renderPanels();
+}
+
+function buildPrompt(p){
+  const parts = [];
+  // style suffix
+  const styleSuffix = STYLE_SUFFIXES[comicStyle] || comicStyle;
+  // characters
+  const pChars = chars.filter(c=>p.charIds.includes(c.id));
+  pChars.forEach(c=>{
+    parts.push(c.desc);
+  });
+  // location
+  const loc = locs.find(l=>l.id===p.locId);
+  if(loc){
+    parts.push(loc.desc);
+    if(loc.time) parts.push(loc.time);
+  }
+  // action / scene description
+  if(p.action) parts.push(p.action);
+  // style
+  parts.push(styleSuffix);
+  // LoRA tokens
+  pChars.forEach(c=>{
+    if(c.lora) parts.push(`<lora:${c.lora}:${c.loraWeight}>`);
+  });
+
+  return parts.filter(Boolean).join(', ');
+}
+
+function renderPanels(){
+  const list=$('panelList');
+  $('panelCount').textContent=panels.length;
+  if(!panels.length){
+    list.innerHTML=`<div id="panelEmpty" style="font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:40px 0">No panels yet.<br>Add a panel in the sidebar.</div>`;
+    return;
+  }
+  list.innerHTML=panels.map((p,i)=>{
+    const prompt = buildPrompt(p);
+    return `
+    <div class="panel-item ${selPanelIdx===i?'selected':''}" id="pitem-${i}">
+      <div class="panel-header" onclick="selectPanel(${i})">
+        <div class="panel-num">${String(i+1).padStart(2,'0')}</div>
+        <input class="panel-title-input" placeholder="Panel ${i+1} — describe the action" value="${escH(p.title)}"
+          onclick="event.stopPropagation()"
+          oninput="panels[${i}].title=this.value;save()">
+        <div style="display:flex;gap:4px;margin-left:auto">
+          <button class="icon-btn del" onclick="event.stopPropagation();deletePanel(${i})" title="delete panel">✕</button>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">chars:</span>
+          ${chars.map(c=>`
+            <span class="ptag ptag-char ${p.charIds.includes(c.id)?'active':''}"
+              onclick="togglePanelChar(${i},${c.id})">${c.name}</span>
+          `).join('')}
+        </div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">location:</span>
+          ${locs.map(l=>`
+            <span class="ptag ptag-loc ${p.locId===l.id?'active':''}"
+              onclick="togglePanelLoc(${i},${l.id})">${l.name}</span>
+          `).join('')}
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:4px">scene / action</div>
+          <textarea rows="2" style="font-size:12px" placeholder="close-up on Maya's face, wide eyes, surprised expression"
+            oninput="panels[${i}].action=this.value;save();updatePromptPreview(${i})">${escH(p.action)}</textarea>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:3px">generated prompt</div>
+          <div class="panel-prompt" id="pprompt-${i}">${escH(prompt)}</div>
+        </div>
+
+        <div class="panel-thumb" id="pthumb-${i}">
+          ${p.image
+            ? `<img src="data:image/png;base64,${p.image}" alt="panel ${i+1}">`
+            : `<span class="panel-thumb-empty">panel ${i+1}</span>`}
+          ${p.seed&&p.seed!==-1?`<div style="position:absolute;bottom:4px;right:4px;font-family:var(--mono);font-size:9px;background:rgba(0,0,0,.6);color:#fff;padding:1px 5px;border-radius:3px">seed:${p.seed}</div>`:''}
+        </div>
+
+        ${p.image ? `
+        <div class="panel-hist-row">
+          <div class="history-strip" id="phistory-${i}">${renderHistoryStrip(i)}</div>
+        </div>` : ''}
+
+        <div style="display:flex;gap:6px">
+          <button class="panel-gen-btn ${p._generating?'generating':''}" id="pgen-${i}"
+            style="flex:1"
+            onclick="generatePanel(${i})">
+            ${p._generating ? 'generating…' : p.image ? '↺ regen' : '▶ generate'}
+          </button>
+          ${p.image ? `<button class="panel-gen-btn" style="flex:0 0 auto;padding:0 12px;border-color:var(--red);color:var(--red)" onclick="openInpaint(${i})" title="fix panel with inpainting">✎ fix</button>` : ''}
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escH(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function selectPanel(i){
+  selPanelIdx=i;
+  renderPanels();
+  const el=$('pitem-'+i);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function togglePanelChar(pi, cid){
+  const p=panels[pi];
+  const idx=p.charIds.indexOf(cid);
+  if(idx>=0) p.charIds.splice(idx,1); else p.charIds.push(cid);
+  save(); renderPanels();
+}
+
+function togglePanelLoc(pi, lid){
+  const p=panels[pi];
+  p.locId = p.locId===lid ? null : lid;
+  save(); renderPanels();
+}
+
+function updatePromptPreview(i){
+  const el=$('pprompt-'+i);
+  if(el) el.textContent=buildPrompt(panels[i]);
+}
+
+/* ══════════════════════════════════════════
+   GENERATION
+══════════════════════════════════════════ */
+async function generatePanel(idx){
+  const p=panels[idx];
+  if(p._generating) return;
+  p._generating=true; renderPanels();
+
+  const prompt=buildPrompt(p);
+  const neg=$('globalNeg').value;
+  const [w,h]=($('panelSize').value||'512x768').split('x').map(Number);
+
+  const payload={
+    prompt, negative_prompt:neg,
+    width:w, height:h,
+    steps:parseInt($('genSteps').value)||28,
+    cfg_scale:parseFloat($('genCfg').value)||7,
+    sampler_name:'DPM++ 2M Karras',
+    seed: p.seed||−1,
+    batch_size:1,
+  };
+
+  // IP-Adapter: if character has reference image, attach first one
+  const pChars=chars.filter(c=>p.charIds.includes(c.id)&&c.img);
+  if(pChars.length){
+    payload.alwayson_scripts={
+      controlnet:{ args:[{
+        enabled:true, image:pChars[0].img,
+        module:'ip-adapter_clip_sd15',
+        model:'ip-adapter-plus-face_sd15',
+        weight:0.55, guidance_start:0, guidance_end:1,
+        control_mode:0, pixel_perfect:true
+      }]}
+    };
+  }
+
+  try{
+    const r=await fetch(getBase()+'/generate/txt2img',{method:'POST',headers:getHdrs(),body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error((await r.json()).error||r.statusText);
+    const data=await r.json();
+    // save to history before replacing
+    pushHistory(idx, p.image, p.seed);
+    p.image=data.images[0];
+    p.seed=data.seed;
+    toast(`panel ${idx+1} done ✓`,'ok');
+    // Auto-save to gallery
+    saveToGallery([data.images[0]], {
+      prompt, negative_prompt:neg, seed:data.seed,
+      source:'comic_panel', tags:['comic', `panel_${idx+1}`],
+      width:w, height:h,
+    });
+    updateComposer();
+  }catch(e){
+    toast('panel '+(idx+1)+' failed: '+e.message,'err');
+  }finally{
+    p._generating=false; save(); renderPanels();
+  }
+}
+
+async function generateAll(){
+  const btn=$('genAllBtn');
+  btn.disabled=true; btn.textContent='GENERATING…';
+  for(let i=0;i<panels.length;i++){
+    await generatePanel(i);
+    await new Promise(r=>setTimeout(r,400));
+  }
+  btn.disabled=false; btn.textContent='GENERATE ALL';
+  toast('all panels generated','ok');
+}
+
+/* ══════════════════════════════════════════
+   COMPOSER
+══════════════════════════════════════════ */
+function initLayoutOpts(){
+  const el=$('layoutOpts');
+  const icons=[
+    [[1,1],[1,1]],    // 2x2
+    [[2,0],[1,1],[1,1]], // 3+1
+    [[2,0],[1,1]],    // 1+2
+    [[3,0],[1,1,1]],  // 1+3
+    [[1]],            // 1row
+    [[1],[1],[1]],    // 3row
+    [[1,1],[1,1],[2,0]], // 2+2+1
+  ];
+  el.innerHTML=LAYOUTS.map((l,i)=>{
+    const rows=icons[i];
+    const cells=rows.map(r=>r.map(c=>`<div class="lo-cell" style="${c>1?'grid-column:span '+c:''}"></div>`).join('')).join('');
+    const gtc=rows[0].length>1?`repeat(${rows[0].length},1fr)`:'1fr';
+    const gtr=`repeat(${rows.length},1fr)`;
+    return `<div class="layout-opt ${i===currentLayout?'active':''}"
+      style="display:grid;grid-template-columns:${gtc};grid-template-rows:${gtr};gap:1px"
+      onclick="setLayout(${i})" title="${l.name}">${cells}</div>`;
+  }).join('');
+}
+
+function setLayout(i){
+  currentLayout=i;
+  initLayoutOpts();
+  updateComposer();
+}
+
+function updateComposer(){
+  const page=$('comicPage');
+  const [pw,ph]=($('pageSize').value||'700x1000').split('x').map(Number);
+  const gut=parseInt($('gutterSize').value)||6;
+  const bgVal=$('pageBg').value;
+  const bgColor=bgVal==='white'?'#fff':bgVal==='black'?'#000':'#f5f0e8';
+  const isDark=bgVal==='black';
+  const L=LAYOUTS[currentLayout];
+
+  page.style.width=pw+'px';
+  page.style.height=ph+'px';
+  page.style.backgroundColor=bgColor;
+  page.style.position='relative';
+
+  // build grid
+  let gridHtml='';
+  let cellCount=0;
+
+  if(L.custom){
+    cellCount=L.cellCount;
+    const areas=L.areas.split(' ').map(row=>row.replace(/['"]/g,'').split('').filter(c=>c!=='('&&c!==')'&&c!==' '))
+    // just use CSS grid-template-areas
+    const letters='abcdefghij';
+    const areaCells=[];
+    L.areas.replace(/['"]/g,'').split(' ').forEach(row=>{
+      row.trim().split(' ').forEach(cell=>{
+        const idx=letters.indexOf(cell);
+        if(idx>=0&&!areaCells.includes(idx)) areaCells.push(idx);
+      });
+    });
+    const totalCells=areaCells.length;
+    const panelCells=panels.slice(0,totalCells).map((p,i)=>`
+      <div class="comic-panel-cell ${isDark?'dark-bg':''}"
+        style="grid-area:${letters[i]};cursor:pointer"
+        onclick="selComposerPanel=${i};renderBubbles()">
+        ${p.image?`<img src="data:image/png;base64,${p.image}" alt="">`:`<div class="empty-panel">${String(i+1).padStart(2,'0')}</div>`}
+        <div class="panel-border-overlay" style="border:${gut/2}px solid ${bgColor}"></div>
+        <div class="panel-number-badge">${i+1}</div>
+      </div>`).join('');
+    gridHtml=`<div class="layout-grid" style="position:absolute;inset:${gut}px;display:grid;${L.template};grid-template-areas:${L.areas};gap:${gut}px">${panelCells}</div>`;
+    cellCount=totalCells;
+  } else {
+    const cols=L.cols||2; const rows=L.rows||2;
+    cellCount=cols*rows;
+    const panelCells=panels.slice(0,cellCount).map((p,i)=>`
+      <div class="comic-panel-cell ${isDark?'dark-bg':''}"
+        onclick="selComposerPanel=${i};renderBubbles()">
+        ${p.image?`<img src="data:image/png;base64,${p.image}" alt="">`:`<div class="empty-panel">${String(i+1).padStart(2,'0')}</div>`}
+        <div class="panel-border-overlay" style="border:${gut/2}px solid ${bgColor}"></div>
+        <div class="panel-number-badge">${i+1}</div>
+      </div>`).join('');
+    gridHtml=`<div class="layout-grid" style="position:absolute;inset:${gut}px;display:grid;grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);gap:${gut}px">${panelCells}</div>`;
+  }
+
+  page.innerHTML=gridHtml+'<div id="bubbleLayer"></div>';
+  $('composerInfo').textContent=`${pw}×${ph}px · ${L.name} · ${panels.filter(p=>p.image).length}/${panels.length} panels generated`;
+  renderBubbles();
+}
+
+/* Speech bubbles */
+let bubbles=[];
+function addBubble(){
+  const txt=$('bubbleText').value.trim();
+  if(!txt){ toast('enter bubble text first','err'); return; }
+  bubbles.push({id:Date.now(),text:txt,panelIdx:selComposerPanel,x:20,y:20});
+  $('bubbleText').value='';
+  renderBubbles();
+}
+
+function renderBubbles(){
+  const layer=$('bubbleLayer');
+  if(!layer) return;
+  layer.innerHTML='';
+  layer.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:20';
+  bubbles.forEach((b,bi)=>{
+    const el=document.createElement('div');
+    el.className='speech-bubble';
+    el.style.cssText=`left:${b.x}px;top:${b.y}px;pointer-events:all`;
+    el.textContent=b.text;
+    // drag
+    let ox,oy,dragging=false;
+    el.onmousedown=e=>{
+      dragging=true; ox=e.clientX-b.x; oy=e.clientY-b.y; e.preventDefault();
+      const mm=e2=>{if(!dragging)return; b.x=e2.clientX-ox; b.y=e2.clientY-oy; el.style.left=b.x+'px'; el.style.top=b.y+'px';};
+      const mu=()=>{dragging=false; document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu);};
+      document.addEventListener('mousemove',mm);
+      document.addEventListener('mouseup',mu);
+    };
+    el.ondblclick=()=>{ bubbles.splice(bi,1); renderBubbles(); };
+    layer.appendChild(el);
+  });
+}
+
+/* Export */
+async function exportComic(){
+  toast('exporting… (requires html2canvas or manual screenshot)');
+  // For full export, html2canvas would be loaded from CDN
+  // Fallback: instruct user
+  const page=$('comicPage');
+  if(!window.html2canvas){
+    toast('tip: right-click the page → save as image, or add html2canvas','err');
+    return;
+  }
+  const canvas=await window.html2canvas(page,{useCORS:true,scale:2});
+  const a=document.createElement('a');
+  a.href=canvas.toDataURL('image/png');
+  a.download=($('comicTitle').value||'comic')+'.png';
+  a.click();
+}
+
+async function exportPDF(){
+  toast('PDF export: use browser Print → Save as PDF on the composer page');
+}
+
+/* ══════════════════════════════════════════
+   PANEL HISTORY
+   Each panel stores up to MAX_HIST versions.
+   history[panelId] = [{image, seed, ts}]
+══════════════════════════════════════════ */
+const MAX_HIST = 5;
+let history = JSON.parse(sessionStorage.getItem('cs_history') || '{}');
+
+function saveHistory(){ sessionStorage.setItem('cs_history', JSON.stringify(history)); }
+
+function pushHistory(panelIdx, image, seed){
+  if(!image) return;
+  const id = panels[panelIdx].id;
+  if(!history[id]) history[id] = [];
+  // don't push duplicate of current
+  const last = history[id][history[id].length-1];
+  if(last && last.image === image) return;
+  history[id].push({ image, seed: seed||-1, ts: Date.now() });
+  if(history[id].length > MAX_HIST) history[id].shift();
+  saveHistory();
+}
+
+function revertToHistory(panelIdx, histIdx){
+  const id = panels[panelIdx].id;
+  const entry = history[id]?.[histIdx];
+  if(!entry) return;
+  // push current to history first
+  pushHistory(panelIdx, panels[panelIdx].image, panels[panelIdx].seed);
+  panels[panelIdx].image = entry.image;
+  panels[panelIdx].seed  = entry.seed;
+  save(); renderPanels(); updateComposer();
+  toast(`panel ${panelIdx+1} reverted`,'ok');
+}
+
+function deleteFromHistory(panelIdx, histIdx){
+  const id = panels[panelIdx].id;
+  if(history[id]) history[id].splice(histIdx,1);
+  saveHistory(); renderPanels();
+}
+
+function renderHistoryStrip(panelIdx){
+  const id = panels[panelIdx].id;
+  const hist = history[id] || [];
+  if(!hist.length) return '<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">no history yet</span>';
+  return hist.map((h,i)=>{
+    const ago = Math.round((Date.now()-h.ts)/60000);
+    const label = ago<1?'now':ago<60?ago+'m':Math.round(ago/60)+'h';
+    return `<div class="hist-thumb" onclick="revertToHistory(${panelIdx},${i})" title="revert to this version (seed ${h.seed})">
+      <img src="data:image/png;base64,${h.image}" alt="">
+      <div class="hist-label">${label}</div>
+      <button class="hist-del" onclick="event.stopPropagation();deleteFromHistory(${panelIdx},${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   INPAINTING
+══════════════════════════════════════════ */
+let inpaintPanelIdx = -1;
+let inpaintTool     = 'brush';
+let isDrawing       = false;
+let inpaintResult   = null;
+let lastX=0, lastY=0;
+const MASK_COLOR    = 'rgba(255,60,60,';
+
+function openInpaint(idx){
+  const p = panels[idx];
+  if(!p.image){ toast('generate panel first','err'); return; }
+  inpaintPanelIdx = idx;
+  inpaintResult   = null;
+  $('inpaintPanelNum').textContent = `— PANEL ${idx+1}`;
+  $('inpaintModal').classList.add('open');
+  $('inpaintApplyBtn').style.display='none';
+  $('inpaintResultThumb').style.display='none';
+  // use panel's own prompt as default inpaint prompt
+  $('inpaintPrompt').value = buildPrompt(p);
+  requestAnimationFrame(()=>setupInpaintCanvas(p.image));
+}
+
+function closeInpaint(){
+  $('inpaintModal').classList.remove('open');
+  inpaintPanelIdx=-1; inpaintResult=null;
+}
+
+function setupInpaintCanvas(b64){
+  const wrap  = $('inpaintCanvasWrap');
+  const base  = $('inpaintBase');
+  const mask  = $('inpaintMask');
+  const wrapW = wrap.clientWidth  - 32;
+  const wrapH = wrap.clientHeight - 32;
+
+  const img = new Image();
+  img.onload = ()=>{
+    // scale to fit wrap
+    const scale = Math.min(wrapW/img.naturalWidth, wrapH/img.naturalHeight, 1);
+    const dw = Math.round(img.naturalWidth  * scale);
+    const dh = Math.round(img.naturalHeight * scale);
+
+    [base, mask].forEach(c=>{
+      c.width=dw; c.height=dh;
+      c.style.width=dw+'px'; c.style.height=dh+'px';
+      c.style.position='absolute';
+    });
+
+    const ctx = base.getContext('2d');
+    ctx.drawImage(img,0,0,dw,dh);
+
+    mask.getContext('2d').clearRect(0,0,dw,dh);
+    updateBrushPreview();
+  };
+  img.src = 'data:image/png;base64,'+b64;
+}
+
+function getCanvasPos(e, canvas){
+  const r = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+function startDraw(e){
+  e.preventDefault();
+  isDrawing=true;
+  const pos = getCanvasPos(e, $('inpaintMask'));
+  lastX=pos.x; lastY=pos.y;
+  drawPoint(pos.x, pos.y);
+}
+
+function doDraw(e){
+  if(!isDrawing) return;
+  e.preventDefault();
+  const pos = getCanvasPos(e, $('inpaintMask'));
+  drawLine(lastX,lastY,pos.x,pos.y);
+  lastX=pos.x; lastY=pos.y;
+}
+
+function stopDraw(){ isDrawing=false; }
+
+function drawPoint(x,y){
+  const ctx = $('inpaintMask').getContext('2d');
+  const sz  = parseInt($('brushSize').value)||32;
+  const op  = parseInt($('maskOpacity').value)/100;
+  ctx.globalCompositeOperation = inpaintTool==='eraser' ? 'destination-out' : 'source-over';
+  ctx.fillStyle = MASK_COLOR+op+')';
+  ctx.beginPath();
+  ctx.arc(x,y,sz/2,0,Math.PI*2);
+  ctx.fill();
+}
+
+function drawLine(x1,y1,x2,y2){
+  const ctx = $('inpaintMask').getContext('2d');
+  const sz  = parseInt($('brushSize').value)||32;
+  const op  = parseInt($('maskOpacity').value)/100;
+  ctx.globalCompositeOperation = inpaintTool==='eraser' ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = MASK_COLOR+op+')';
+  ctx.lineWidth   = sz;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.stroke();
+  drawPoint(x2,y2);
+}
+
+function clearMask(){
+  const c=$('inpaintMask');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+function setTool(t){
+  inpaintTool=t;
+  $('toolBrush').classList.toggle('active',t==='brush');
+  $('toolEraser').classList.toggle('active',t==='eraser');
+}
+
+function updateBrushPreview(){
+  const sz = parseInt($('brushSize').value)||32;
+  const p  = $('brushPreview');
+  const d  = Math.max(10,Math.min(sz,40))+'px';
+  p.style.width=d; p.style.height=d;
+}
+
+function updateMaskOpacity(){
+  // re-render is live since we use rgba with variable opacity
+}
+
+function getMaskDataURL(){
+  // return a pure black-and-white mask (white=inpaint region)
+  const src = $('inpaintMask');
+  const tmp = document.createElement('canvas');
+  tmp.width=src.width; tmp.height=src.height;
+  const ctx = tmp.getContext('2d');
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,tmp.width,tmp.height);
+  // wherever mask has alpha > 0 → white
+  const srcData = src.getContext('2d').getImageData(0,0,src.width,src.height);
+  const dstData = ctx.getImageData(0,0,tmp.width,tmp.height);
+  for(let i=0;i<srcData.data.length;i+=4){
+    if(srcData.data[i+3]>10){
+      dstData.data[i]=dstData.data[i+1]=dstData.data[i+2]=255;
+      dstData.data[i+3]=255;
+    }
+  }
+  ctx.putImageData(dstData,0,0);
+  return tmp.toDataURL('image/png').split(',')[1];
+}
+
+async function runInpaint(){
+  if(inpaintPanelIdx<0) return;
+  const p = panels[inpaintPanelIdx];
+  const btn=$('inpaintGenBtn');
+  btn.disabled=true; btn.textContent='generating…';
+
+  // check mask has content
+  const maskCtx=$('inpaintMask').getContext('2d');
+  const px=maskCtx.getImageData(0,0,$('inpaintMask').width,$('inpaintMask').height);
+  const hasMask=px.data.some((_,i)=>i%4===3&&px.data[i]>10);
+  if(!hasMask){ toast('paint a mask first','err'); btn.disabled=false; btn.textContent='▶ generate fix'; return; }
+
+  const payload={
+    prompt:       $('inpaintPrompt').value || buildPrompt(p),
+    negative_prompt: $('inpaintNeg').value,
+    init_images:  [p.image],
+    mask:         getMaskDataURL(),
+    mask_blur:    4,
+    inpainting_fill: parseInt($('inpaintFill').value),
+    inpaint_full_res: true,
+    inpaint_full_res_padding: 32,
+    inpainting_mask_invert: parseInt($('inpaintMaskMode').value),
+    denoising_strength: parseFloat($('inpaintDenoise').value),
+    steps:        parseInt($('inpaintSteps').value)||28,
+    cfg_scale:    parseFloat($('genCfg').value)||7,
+    sampler_name: 'DPM++ 2M Karras',
+    seed:         -1,
+    width:        $('inpaintMask').width,
+    height:       $('inpaintMask').height,
+  };
+
+  try{
+    const r=await fetch(getBase()+'/inpaint',{method:'POST',headers:getHdrs(),body:JSON.stringify(payload)});
+    if(!r.ok){
+      // fallback: try img2img endpoint (most wrappers route inpaint through it)
+      payload.init_image = payload.init_images[0];
+      delete payload.init_images;
+      const r2=await fetch(getBase()+'/generate/img2img',{method:'POST',headers:getHdrs(),body:JSON.stringify(payload)});
+      if(!r2.ok) throw new Error((await r2.json()).error||r2.statusText);
+      const d2=await r2.json();
+      inpaintResult=d2.images[0];
+    } else {
+      const d=await r.json();
+      inpaintResult=d.images[0];
+    }
+    $('inpaintResultImg').src='data:image/png;base64,'+inpaintResult;
+    $('inpaintResultThumb').style.display='block';
+    $('inpaintApplyBtn').style.display='flex';
+    toast('fix generated — review and apply','ok');
+  }catch(e){
+    toast('inpaint failed: '+e.message,'err');
+  }finally{
+    btn.disabled=false; btn.textContent='▶ generate fix';
+  }
+}
+
+function applyInpaintResult(){
+  if(!inpaintResult||inpaintPanelIdx<0) return;
+  const p=panels[inpaintPanelIdx];
+  pushHistory(inpaintPanelIdx, p.image, p.seed);
+  p.image=inpaintResult;
+  save(); renderPanels(); updateComposer();
+  closeInpaint();
+  toast(`panel ${inpaintPanelIdx+1} fixed ✓`,'ok');
+}
+
+/* ══════════════════════════════════════════
+   LORA TRAINER
+══════════════════════════════════════════ */
+let trainerStep    = 0;
+let seedImgs       = [null, null, null];   // base64 strings
+let variations     = [];                   // [{b64, selected, caption}]
+let activeVtags    = new Set(['pose','lighting','angle']);
+let trainJobId     = null;
+let trainPollTimer = null;
+let savedLoras     = JSON.parse(localStorage.getItem('cs_savedLoras') || '[]');
+
+const VARIATION_PROMPTS = {
+  pose:       ['standing, arms crossed','sitting down, relaxed','looking over shoulder','arms raised','leaning against wall','walking forward'],
+  lighting:   ['soft studio lighting','dramatic side lighting','golden hour sunlight','neon lighting','candlelight','overcast natural light'],
+  angle:      ['close-up portrait','medium shot','slightly above angle','slightly below angle','three-quarter view','profile view'],
+  expression: ['smiling warmly','serious expression','surprised expression','laughing','thoughtful pensive','confident smirk'],
+  outfit:     ['casual outfit','formal wear','jacket and jeans','simple white shirt','dark clothing','colourful outfit'],
+};
+
+// ── Step navigation ──────────────────────────────────────────
+function goTrainerStep(n){
+  // validate before advancing
+  if(n===1 && !$('loraCharName').value.trim()){ toast('Add a character name first','err'); return; }
+  if(n===1 && !seedImgs.some(Boolean)){ toast('Upload at least one seed photo','err'); return; }
+  if(n===2 && variations.length===0){ toast('Generate some variations first','err'); return; }
+
+  trainerStep=n;
+  document.querySelectorAll('.trainer-step').forEach((s,i)=>s.classList.toggle('active',i===n));
+  document.querySelectorAll('[id^="stepNav"]').forEach((el,i)=>{
+    el.classList.toggle('active',i===n);
+    el.classList.toggle('done',i<n);
+    // update done checkmark
+    el.querySelector('.step-num').textContent = i<n ? '✓' : String(i+1);
+  });
+
+  if(n===2) renderSelectGrid();
+  if(n===3) populateTrainSummary();
+}
+
+// ── Seed image upload ────────────────────────────────────────
+function addSeedImg(idx, e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    seedImgs[idx]=ev.target.result.split(',')[1];
+    const slot=$(`seedSlot${idx}`);
+    slot.classList.add('filled');
+    slot.innerHTML=`
+      <img src="${ev.target.result}" alt="">
+      <button class="seed-remove" onclick="removeSeedImg(${idx},event)">✕</button>`;
+  };
+  r.readAsDataURL(f);
+}
+function removeSeedImg(idx,e){
+  e.stopPropagation();
+  seedImgs[idx]=null;
+  const slot=$(`seedSlot${idx}`);
+  slot.classList.remove('filled');
+  slot.innerHTML=`
+    <input type="file" accept="image/*" onchange="addSeedImg(${idx},event)">
+    <div class="seed-slot-hint">+ photo ${idx+1}<br><span style="font-size:9px;color:var(--faint)">${idx===0?'front-facing':'optional'}</span></div>`;
+}
+
+// ── Variation tags ───────────────────────────────────────────
+function toggleVtag(tag, el){
+  if(activeVtags.has(tag)){ activeVtags.delete(tag); el.classList.remove('active'); }
+  else { activeVtags.add(tag); el.classList.add('active'); }
+}
+
+// ── Generate variation batch ─────────────────────────────────
+async function generateVariationBatch(){
+  const seedB64 = seedImgs.find(Boolean);
+  if(!seedB64){ toast('No seed image found','err'); return; }
+
+  const btn=$('genVarBtn');
+  btn.disabled=true; btn.textContent='Generating…';
+
+  const charDesc = $('loraCharDesc').value || 'a person';
+  const charName = $('loraCharName').value || 'character';
+  const denoise  = parseFloat($('varDenoise').value);
+
+  // Build 8 prompts mixing active tag categories
+  const tagKeys = [...activeVtags];
+  const prompts = Array.from({length:8}, (_,i)=>{
+    const parts = [charDesc];
+    tagKeys.forEach(k=>{
+      const pool=VARIATION_PROMPTS[k];
+      parts.push(pool[(i*3+tagKeys.indexOf(k)*2) % pool.length]);
+    });
+    parts.push('photorealistic, sharp focus, detailed face, 8k');
+    return parts.join(', ');
+  });
+
+  // IP-Adapter payload using first seed image
+  const alwayson = {
+    controlnet:{ args:[{
+      enabled:true, image:seedB64,
+      module:'ip-adapter_clip_sd15',
+      model:'ip-adapter-plus-face_sd15',
+      weight:0.6, guidance_start:0, guidance_end:1,
+      control_mode:0, pixel_perfect:true
+    }]}
+  };
+
+  const results = [];
+  for(let i=0;i<prompts.length;i++){
+    btn.textContent=`Generating ${i+1}/8…`;
+    try{
+      const payload={
+        prompt: prompts[i],
+        negative_prompt:'blurry, low quality, deformed, ugly, bad anatomy, multiple people',
+        init_images:[seedB64],
+        denoising_strength:denoise,
+        width:512, height:768,
+        steps:28, cfg_scale:7,
+        sampler_name:'DPM++ 2M Karras',
+        seed:-1, alwayson_scripts:alwayson,
+      };
+      const r=await fetch(getBase()+'/generate/img2img',{method:'POST',headers:getHdrs(),body:JSON.stringify(payload)});
+      if(!r.ok) throw new Error(await r.text());
+      const data=await r.json();
+      results.push({b64:data.images[0], selected:false, caption:'', prompt:prompts[i]});
+    }catch(e){
+      console.warn('variation failed:',e.message);
+    }
+    await new Promise(res=>setTimeout(res,200));
+  }
+
+  variations.push(...results);
+  renderVarGrid();
+  $('varCount').textContent=`${variations.length} generated`;
+  $('toStep2Btn').disabled = variations.length < 8;
+  btn.disabled=false; btn.textContent='Generate 8 more variations';
+  toast(`${results.length} variations added`,'ok');
+}
+
+function renderVarGrid(){
+  const grid=$('varGrid');
+  if(!variations.length){
+    grid.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--muted);grid-column:1/-1;padding:20px 0;text-align:center">No variations yet</div>`;
+    return;
+  }
+  grid.innerHTML=variations.map((v,i)=>`
+    <div class="var-card ${v.selected?'selected':''}" onclick="toggleVariation(${i})">
+      <img src="data:image/png;base64,${v.b64}" alt="variation ${i+1}">
+      <div class="var-check">✓</div>
+      <button class="var-caption-btn" onclick="event.stopPropagation();editCaption(${i})">edit caption</button>
+    </div>`).join('');
+}
+
+function clearVariations(){ variations=[]; renderVarGrid(); $('varCount').textContent='0 generated'; $('toStep2Btn').disabled=true; }
+
+// ── Step 3: select & caption ─────────────────────────────────
+function renderSelectGrid(){
+  const grid=$('selectGrid');
+  grid.innerHTML=variations.map((v,i)=>`
+    <div class="var-card ${v.selected?'selected':''}" onclick="toggleVariation(${i});renderSelectGrid();updateSelectedCount()">
+      <img src="data:image/png;base64,${v.b64}" alt="">
+      <div class="var-check">✓</div>
+    </div>`).join('');
+  updateSelectedCount();
+}
+
+function toggleVariation(i){
+  variations[i].selected=!variations[i].selected;
+  renderVarGrid();
+  updateSelectedCount();
+}
+
+function selectAllVariations(){ variations.forEach(v=>v.selected=true); renderSelectGrid(); }
+function deselectAllVariations(){ variations.forEach(v=>v.selected=false); renderSelectGrid(); }
+
+function updateSelectedCount(){
+  const sel=variations.filter(v=>v.selected).length;
+  $('selectedCount').textContent=sel;
+  $('toStep3Btn').disabled = sel < 10;
+  if(sel>=10){
+    $('captionSection').style.display='block';
+    renderCaptionGrid();
+  }
+}
+
+function renderCaptionGrid(){
+  const sel=variations.filter(v=>v.selected);
+  $('captionGrid').innerHTML=sel.map((v,i)=>`
+    <div class="caption-item">
+      <img class="caption-thumb" src="data:image/png;base64,${v.b64}" alt="">
+      <textarea class="caption-ta" placeholder="describe this image for training…"
+        oninput="updateCaption(${variations.indexOf(v)},this.value)">${v.caption||''}</textarea>
+    </div>`).join('');
+}
+
+function updateCaption(idx, val){ variations[idx].caption=val; }
+
+async function autoCaption(){
+  const btn=$('autoCaptionBtn');
+  const selected=variations.filter(v=>v.selected);
+  btn.disabled=true; btn.textContent='Captioning…';
+  const charName=$('loraCharName').value||'person';
+  const charDesc=$('loraCharDesc').value||'a person';
+
+  for(let i=0;i<selected.length;i++){
+    btn.textContent=`Captioning ${i+1}/${selected.length}…`;
+    try{
+      // Try the caption endpoint; fall back to prompt-derived caption
+      let caption='';
+      try{
+        const r=await fetch(getBase()+'/caption',{
+          method:'POST', headers:getHdrs(),
+          body:JSON.stringify({image:selected[i].b64})
+        });
+        if(r.ok){ const d=await r.json(); caption=d.caption||''; }
+      }catch{}
+
+      // Fallback: construct caption from the generation prompt
+      if(!caption){
+        const p=selected[i].prompt||'';
+        caption=`${charName}, ${charDesc}, ${p.split(',').slice(2,5).join(',')}`.trim();
+      }
+
+      // Always prepend the trigger word
+      if(!caption.startsWith(charName)) caption=`${charName}, ${caption}`;
+      selected[i].caption=caption;
+    }catch(e){ console.warn('caption failed:',e); }
+    await new Promise(r=>setTimeout(r,100));
+  }
+
+  renderCaptionGrid();
+  btn.disabled=false; btn.textContent='✨ auto-caption all';
+  toast('Captions generated','ok');
+}
+
+function editCaption(idx){
+  const v=variations[idx];
+  const cap=prompt('Edit caption:', v.caption||'');
+  if(cap!==null){ v.caption=cap; renderVarGrid(); renderCaptionGrid(); }
+}
+
+// ── Step 4: train summary ────────────────────────────────────
+function prepareTraining(){
+  const sel=variations.filter(v=>v.selected).length;
+  if(sel<10){ toast('Select at least 10 images','err'); return; }
+  goTrainerStep(3);
+}
+
+function populateTrainSummary(){
+  $('trainSummaryName').textContent  = $('loraCharName').value||'—';
+  $('trainSummaryCount').textContent = variations.filter(v=>v.selected).length;
+  $('trainSummaryModel').textContent = $('loraBaseModel').value;
+  const imgs = variations.filter(v=>v.selected).length;
+  const epochs = parseInt($('loraEpochs').value)||20;
+  $('trainSummaryETA').textContent   = `~${Math.round(imgs*epochs*0.12)} min`;
+}
+
+// ── Start training ───────────────────────────────────────────
+async function startTraining(){
+  const btn=$('startTrainBtn');
+  btn.disabled=true; btn.textContent='Starting…';
+  $('trainProgressWrap').style.display='flex';
+  $('trainSuccess').style.display='none';
+  $('trainBackBtn').disabled=true;
+
+  const selected=variations.filter(v=>v.selected);
+  const payload={
+    name:         $('loraCharName').value,
+    base_model:   $('loraBaseModel').value,
+    images:       selected.map(v=>({b64:v.b64, caption:v.caption||$('loraCharName').value+', '+$('loraCharDesc').value})),
+    rank:         parseInt($('loraRank').value),
+    epochs:       parseInt($('loraEpochs').value),
+    learning_rate:$('loraLR').value,
+    batch_size:   parseInt($('loraBatch').value),
+  };
+
+  try{
+    const r=await fetch(getBase()+'/train/lora',{method:'POST',headers:getHdrs(),body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error((await r.json()).error||r.statusText);
+    const d=await r.json();
+    trainJobId=d.job_id;
+    $('trainerSidebarStatus').textContent=`training: ${payload.name}`;
+    appendTrainLog(`Job started: ${trainJobId}`);
+    trainPollTimer=setInterval(pollTraining,3000);
+    btn.textContent='Training in progress…';
+    toast('Training started!','ok');
+  }catch(e){
+    btn.disabled=false; btn.textContent='Start training →';
+    $('trainBackBtn').disabled=false;
+    toast('Failed to start training: '+e.message,'err');
+    appendTrainLog('ERROR: '+e.message);
+  }
+}
+
+async function pollTraining(){
+  if(!trainJobId) return;
+  try{
+    const r=await fetch(getBase()+`/train/status/${trainJobId}`,{headers:getHdrs()});
+    const d=await r.json();
+
+    // update stats
+    if(d.epoch!==undefined)  $('statEpoch').textContent=d.epoch;
+    if(d.step!==undefined)   $('statStep').textContent=d.step;
+    if(d.loss!==undefined)   $('statLoss').textContent=parseFloat(d.loss).toFixed(4);
+    if(d.eta!==undefined)    $('statETA').textContent=d.eta;
+    if(d.progress!==undefined) $('trainProgFill').style.width=Math.round(d.progress)+'%';
+    if(d.log) appendTrainLog(d.log);
+    $('trainStatusLabel').textContent=d.status||'running';
+
+    if(d.status==='done'){
+      clearInterval(trainPollTimer); trainPollTimer=null;
+      window._lastTrainJobId = trainJobId;  // store for download
+      trainJobId=null;
+      $('trainProgressWrap').style.display='none';
+      $('trainSuccess').style.display='block';
+      $('trainSuccessPath').textContent=d.output_path||`models/Lora/${$('loraCharName').value}.safetensors`;
+      $('trainerSidebarStatus').textContent='done ✓';
+      saveLora(d.output_path);
+      toast('LoRA training complete!','ok');
+      // Auto-run test generation
+      setTimeout(()=>runLoraTest(), 1000);
+    }
+    if(d.status==='error'){
+      clearInterval(trainPollTimer);
+      appendTrainLog('TRAINING FAILED: '+(d.error||'unknown error'));
+      toast('Training failed','err');
+      $('startTrainBtn').disabled=false; $('startTrainBtn').textContent='Retry →';
+      $('trainBackBtn').disabled=false;
+    }
+  }catch(e){ appendTrainLog('Poll error: '+e.message); }
+}
+
+function appendTrainLog(msg){
+  const log=$('trainLog');
+  const ts=new Date().toLocaleTimeString();
+  log.textContent+=`[${ts}] ${msg}\n`;
+  log.scrollTop=log.scrollHeight;
+}
+
+async function cancelTraining(){
+  if(!trainJobId) return;
+  clearInterval(trainPollTimer);
+  try{
+    await fetch(getBase()+`/train/cancel/${trainJobId}`,{method:'POST',headers:getHdrs()});
+  }catch{}
+  trainJobId=null;
+  $('trainerSidebarStatus').textContent='cancelled';
+  $('startTrainBtn').disabled=false; $('startTrainBtn').textContent='Start training →';
+  $('trainBackBtn').disabled=false;
+  toast('Training cancelled');
+}
+
+// ── Saved LoRAs ──────────────────────────────────────────────
+function saveLora(path){
+  const name=$('loraCharName').value;
+  savedLoras.push({name, path:path||name+'.safetensors', ts:Date.now()});
+  localStorage.setItem('cs_savedLoras',JSON.stringify(savedLoras));
+  renderSavedLoras();
+}
+
+function renderSavedLoras(){
+  const el=$('savedLoraList');
+  if(!savedLoras.length){ el.innerHTML='<span style="font-family:var(--mono);font-size:10px;color:var(--muted)">none yet</span>'; return; }
+  el.innerHTML=savedLoras.map((l,i)=>`
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--rs);padding:6px 8px">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text)">${l.name}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px">${l.path}</div>
+    </div>`).join('');
+}
+
+function downloadLoraFile(){
+  const jobId = window._lastTrainJobId;
+  if(!jobId){ toast('No completed training job found','err'); return; }
+  const url = `${getBase()}/train/download/${jobId}?key=${encodeURIComponent($('apiKey').value)}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = ($('loraCharName').value || 'lora') + '.safetensors';
+  a.click();
+  toast('Downloading LoRA…', 'ok');
+}
+
+async function runLoraTest(){
+  const jobId = window._lastTrainJobId;
+  if(!jobId){ toast('No training job found','err'); return; }
+  const btn=$('rerunTestBtn');
+  if(btn){ btn.disabled=true; btn.textContent='testing…'; }
+  $('loraTestSection').style.display='block';
+  $('loraTestGrid').innerHTML=`<div style="grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;text-align:center">Generating 4 test images… this takes 2–3 min</div>`;
+
+  try{
+    const r=await fetch(getBase()+`/train/test/${jobId}`,{
+      method:'POST', headers:getHdrs(),
+      body:JSON.stringify({
+        prompt: $('loraCharName').value+', portrait',
+        weight: 0.7,
+      })
+    });
+    if(!r.ok) throw new Error((await r.json()).error||r.statusText);
+    const data=await r.json();
+
+    $('loraTestGrid').innerHTML=data.results.map((res,i)=>`
+      <div style="border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--s2)">
+        ${res.image
+          ? `<img src="data:image/png;base64,${res.image}" style="width:100%;display:block;aspect-ratio:2/3;object-fit:cover">`
+          : `<div style="aspect-ratio:2/3;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--red)">failed: ${res.error||'unknown'}</div>`
+        }
+        <div style="padding:5px 7px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5">
+          ${['close-up portrait','full body','side profile','smiling'][i]}
+          ${res.seed?`<span style="color:var(--faint)"> · ${res.seed}</span>`:''}
+        </div>
+      </div>`).join('');
+
+    toast('LoRA test complete','ok');
+  }catch(e){
+    $('loraTestGrid').innerHTML=`<div style="grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--red);padding:12px">Test failed: ${e.message}</div>`;
+    toast('Test failed: '+e.message,'err');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='↺ rerun test'; }
+  }
+}
+
+// ── Gallery auto-save ─────────────────────────────────────────
+async function saveToGallery(images, meta={}){
+  try{
+    await fetch(getBase()+'/gallery/save',{
+      method:'POST', headers:getHdrs(),
+      body:JSON.stringify({ images, ...meta })
+    });
+  }catch(e){ console.warn('gallery save failed:',e.message); }
+}
+
+function addLoraToCharacter(){
+  const name=$('loraCharName').value;
+  const path=$('trainSuccessPath').textContent;
+  // Pre-fill the Characters tab with this LoRA
+  $('charName').value=name;
+  $('charDesc').value=$('loraCharDesc').value;
+  $('charLora').value=name;
+  $('charLoraWeight').value='0.7';
+  showPage('characters', document.querySelectorAll('.nav-tab')[0]);
+  toast(`Ready to add ${name} as character — fill in details and click Add`,'ok');
+}
+
+async function downloadLoraFile(){
+  const jid = window._lastTrainJobId;
+  if(!jid){ toast('Job ID missing — check server manually','err'); return; }
+
+  const btn = document.querySelector('[onclick="downloadLoraFile()"]');
+  const origText = btn.textContent;
+  btn.textContent='⬇ Downloading…'; btn.disabled=true;
+
+  try{
+    const r = await fetch(getBase()+`/train/download/${jid}`, { headers:getHdrs() });
+    if(!r.ok){
+      const err = await r.json().catch(()=>({}));
+      throw new Error(err.error || r.statusText);
+    }
+    const blob = await r.blob();
+    const name = $('loraCharName').value || 'lora';
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href=url; a.download=`${name}.safetensors`; a.click();
+    URL.revokeObjectURL(url);
+    toast('LoRA downloaded ✓','ok');
+  }catch(e){
+    toast('Download failed: '+e.message,'err');
+  }finally{
+    btn.textContent=origText; btn.disabled=false;
+  }
+}
+
+// ── init slider event ────────────────────────────────────────
+document.getElementById('varDenoise').addEventListener('input',function(){
+  $('varDenoiseVal').textContent=parseFloat(this.value).toFixed(2);
+});
+
+renderSavedLoras();
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeInpaint(); return; }
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if(e.key==='n'||e.key==='N'){ addPanel(); }
+  if(e.key==='g'||e.key==='G'){ if(selPanelIdx>=0) generatePanel(selPanelIdx); }
+  if(e.key==='ArrowRight'&&selPanelIdx<panels.length-1){ selectPanel(selPanelIdx+1); }
+  if(e.key==='ArrowLeft'&&selPanelIdx>0){ selectPanel(selPanelIdx-1); }
+});
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+renderChars();
+renderLocs();
+renderPanels();
+initLayoutOpts();
+updateComposer();
+
+/* ══════════════════════════════════════════
+   COMIC STUDIO GALLERY
+══════════════════════════════════════════ */
+let csGalItems=[];
+let csGalFilter={search:'',tag:''};
+
+async function loadCSGallery(){
+  $('csGalGrid').innerHTML=`<div class="gal-empty">loading…</div>`;
+  try{
+    const params=new URLSearchParams({limit:'200'});
+    if(csGalFilter.tag)    params.set('tag',csGalFilter.tag);
+    if(csGalFilter.search) params.set('search',csGalFilter.search);
+    const r=await fetch(getBase()+'/gallery?'+params,{headers:getHdrs()});
+    if(!r.ok) throw new Error('gallery unavailable — check API connection');
+    const d=await r.json();
+    csGalItems=d.items||[];
+    renderCSGallery();
+    renderCSGalTags(d.tags||[]);
+  }catch(e){
+    $('csGalGrid').innerHTML=`<div class="gal-empty" style="color:var(--red)">${e.message}</div>`;
+  }
+}
+
+function renderCSGallery(){
+  const search=(csGalFilter.search||'').toLowerCase();
+  const items=csGalItems.filter(it=>{
+    if(search&&!JSON.stringify(it).toLowerCase().includes(search)) return false;
+    if(csGalFilter.tag&&!(it.tags||[]).includes(csGalFilter.tag)) return false;
+    return true;
+  });
+  $('csGalCount').textContent=`${items.length} image${items.length!==1?'s':''}`;
+  $('csGalActiveFilter').textContent=csGalFilter.tag?`tag: ${csGalFilter.tag}`:'';
+
+  if(!items.length){
+    $('csGalGrid').innerHTML=`<div class="gal-empty">no images found</div>`;
+    return;
+  }
+  $('csGalGrid').innerHTML=items.map(it=>`
+    <div class="gal-card">
+      <img src="${getBase()}/gallery/${it.id}/image?key=${encodeURIComponent($('apiKey').value)}"
+           onerror="this.parentElement.style.background='var(--s3)'" loading="lazy" alt="">
+      <div class="gal-overlay">
+        <div class="gal-meta">${(it.prompt||'').slice(0,90)}${(it.prompt||'').length>90?'…':''}</div>
+        <div class="gal-meta" style="color:rgba(255,255,255,.4)">
+          ${it.model||''} ${it.seed?'· seed '+it.seed:''}
+          ${(it.tags||[]).map(t=>`<span onclick="csFilterTag('${t}')" style="cursor:pointer;color:var(--ink);margin-left:3px">#${t}</span>`).join('')}
+        </div>
+        <div class="gal-btns">
+          <div class="gal-btn" onclick="csGalUsePrompt('${it.id}')">use prompt</div>
+          <div class="gal-btn" onclick="csGalToI2I('${it.id}')">→ i2i</div>
+          <div class="gal-btn del" onclick="csGalDelete('${it.id}')">del</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderCSGalTags(tags){
+  $('csGalTagList').innerHTML=[
+    `<span class="gal-tag ${!csGalFilter.tag?'on':''}" onclick="csFilterTag('')">all</span>`,
+    ...tags.map(t=>`<span class="gal-tag ${csGalFilter.tag===t.tag?'on':''}" onclick="csFilterTag('${t.tag}')">${t.tag} (${t.count})</span>`)
+  ].join('');
+}
+
+function csFilterTag(tag){
+  csGalFilter.tag=tag;
+  renderCSGallery();
+  renderCSGalTags(csGalItems.reduce((acc,it)=>{
+    (it.tags||[]).forEach(t=>{ const f=acc.find(x=>x.tag===t); f?f.count++:acc.push({tag:t,count:1}); });
+    return acc;
+  },[]));
+}
+
+function clearCSGalleryFilter(){
+  csGalFilter={search:'',tag:''};
+  $('csGalSearch').value='';
+  renderCSGallery();
+}
+
+async function csGalDelete(id){
+  if(!confirm('Delete from gallery?')) return;
+  try{
+    await fetch(getBase()+'/gallery/'+id,{method:'DELETE',headers:getHdrs()});
+    csGalItems=csGalItems.filter(i=>i.id!==id);
+    renderCSGallery();
+    toast('deleted');
+  }catch(e){ toast('delete failed: '+e.message,'err'); }
+}
+
+function csGalUsePrompt(id){
+  const it=csGalItems.find(i=>i.id===id);
+  if(!it) return;
+  if(it.prompt) $('prompt').value=it.prompt;
+  // switch to script tab
+  showPage('script', document.querySelectorAll('.nav-tab')[2]);
+  toast('prompt loaded','ok');
+}
+
+async function csGalToI2I(id){
+  try{
+    const r=await fetch(getBase()+'/gallery/'+id+'/image?key='+encodeURIComponent($('apiKey').value));
+    const blob=await r.blob();
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      uploadedBase64=ev.target.result.split(',')[1];
+      $('uploadPreview').src=ev.target.result;
+      $('uploadPreview').style.display='block';
+      $('uploadHint').style.display='none';
+      $('uploadZone').classList.add('has-image');
+      showPage('script', document.querySelectorAll('.nav-tab')[2]);
+      toast('image sent to img2img','ok');
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){ toast('failed: '+e.message,'err'); }
+}
+
+// Load gallery when tab opened
+const _origShowPage=showPage;
+function showPage(name, btn){
+  _origShowPage(name, btn);
+  if(name==='gallery') loadCSGallery();
+}
+
+/* ══════════════════════════════════════════
+   QUEUE STATUS BADGE
+══════════════════════════════════════════ */
+async function pollQueueStatus(){
+  try{
+    const r=await fetch(getBase()+'/queue',{headers:getHdrs()});
+    const d=await r.json();
+    const total=(d.queued||0)+(d.busy?1:0);
+    // show in topbar-right if busy
+    let badge=$('queueBadgeCS');
+    if(!badge){
+      badge=document.createElement('span');
+      badge.id='queueBadgeCS';
+      badge.style.cssText='font-family:var(--mono);font-size:10px;color:var(--amber);padding:3px 8px;border:1px solid rgba(251,191,36,.3);border-radius:100px;background:rgba(251,191,36,.06)';
+      $('apiLabel').parentElement.appendChild(badge);
+    }
+    badge.textContent=total>0?`${total} queued`:'';
+    badge.style.display=total>0?'inline':'none';
+  }catch{}
+}
+setInterval(pollQueueStatus, 3000);
+</script>
+</body>
+</html>

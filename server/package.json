@@ -1,0 +1,22 @@
+{
+  "name": "comixbook-api",
+  "version": "1.0.0",
+  "description": "ComixBook API server — SD WebUI wrapper, generation queue, gallery, LoRA training",
+  "type": "module",
+  "main": "api.js",
+  "scripts": {
+    "start": "node api.js",
+    "dev":   "node --watch api.js"
+  },
+  "dependencies": {
+    "axios":              "^1.6.0",
+    "cors":               "^2.8.5",
+    "dotenv":             "^16.3.1",
+    "express":            "^4.18.2",
+    "express-rate-limit": "^7.2.0",
+    "uuid":               "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

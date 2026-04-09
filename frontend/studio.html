@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD WebUI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0f;--surface:#141417;--surface2:#1c1c21;--surface3:#222228;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8e6f0;--muted:#7a7890;
+  --accent:#7c5cbf;--accent2:#a07ee8;--glow:rgba(124,92,191,0.22);
+  --green:#4ade80;--red:#f87171;--amber:#fbbf24;--teal:#2dd4bf;
+  --mono:'DM Mono',monospace;--sans:'Syne',sans-serif;
+  --r:10px;--rs:6px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;line-height:1.5}
+
+/* ── app shell ── */
+.app{display:grid;grid-template-columns:360px 1fr;grid-template-rows:52px 1fr;min-height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);gap:12px}
+.logo{font-size:13px;font-weight:500;font-family:var(--mono);color:var(--accent2);letter-spacing:.04em;flex-shrink:0}
+.logo span{color:var(--muted)}
+.header-badges{display:flex;gap:6px;flex:1}
+.badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:100px;border:1px solid var(--border);color:var(--muted)}
+.badge.on{border-color:var(--accent);color:var(--accent2);background:rgba(124,92,191,0.1)}
+.status-pill{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:4px 12px;cursor:pointer;transition:border-color .2s;flex-shrink:0}
+.status-pill:hover{border-color:var(--border2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot.loading{background:var(--amber);animation:blink 1s infinite}
+.dot.error{background:var(--red)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── sidebar ── */
+aside{border-right:1px solid var(--border);background:var(--surface);overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1.1rem}
+aside::-webkit-scrollbar{width:4px}
+aside::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── form basics ── */
+.field-group{display:flex;flex-direction:column;gap:6px}
+.field-label{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+.field-label .lbadge{font-size:9px;padding:1px 6px;border-radius:100px;border:1px solid;margin-left:auto}
+.lbadge-green{border-color:rgba(74,222,128,.4);color:var(--green);background:rgba(74,222,128,.07)}
+.lbadge-teal{border-color:rgba(45,212,191,.4);color:var(--teal);background:rgba(45,212,191,.07)}
+.lbadge-amber{border-color:rgba(251,191,36,.4);color:var(--amber);background:rgba(251,191,36,.07)}
+textarea,input[type="text"],input[type="number"],select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;font-size:13px;color:var(--text);font-family:var(--sans);outline:none;transition:border-color .2s;resize:none;appearance:none}
+textarea:focus,input:focus,select:focus{border-color:var(--accent)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7890'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;cursor:pointer}
+select option{background:#1c1c21}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* sliders */
+.slider-wrap{display:flex;flex-direction:column;gap:5px}
+.slider-top{display:flex;justify-content:space-between;align-items:center}
+.slabel{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.sval{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--accent2)}
+input[type="range"]{width:100%;height:3px;-webkit-appearance:none;background:var(--surface2);border-radius:2px;outline:none;border:1px solid var(--border)}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent2);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 0 1px var(--accent)}
+input[type="range"].teal::-webkit-slider-thumb{background:var(--teal);box-shadow:0 0 0 1px rgba(45,212,191,.5)}
+input[type="range"].amber::-webkit-slider-thumb{background:var(--amber);box-shadow:0 0 0 1px rgba(251,191,36,.5)}
+
+/* small buttons */
+.seed-row{display:flex;gap:5px}
+.seed-row input{flex:1;font-family:var(--mono);font-size:12px}
+.mini-btn,.ping-btn{padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--muted);font-size:11px;font-family:var(--mono);cursor:pointer;transition:border-color .2s,color .2s;white-space:nowrap}
+.mini-btn:hover,.ping-btn:hover{border-color:var(--border2);color:var(--text)}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:11px;font-family:var(--mono);padding:3px 9px;border-radius:100px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:border-color .2s,color .2s;user-select:none}
+.tag:hover{border-color:var(--accent);color:var(--accent2)}
+
+/* ── main tabs (top-level) ── */
+.mode-tabs{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:3px}
+.mode-tab{flex:1;padding:6px 4px;background:transparent;border:none;border-radius:4px;color:var(--muted);font-size:10px;font-family:var(--mono);cursor:pointer;transition:background .15s,color .15s;text-align:center;white-space:nowrap}
+.mode-tab.active{background:var(--accent);color:#fff}
+.mode-tab:hover:not(.active){color:var(--text)}
+.section-block{display:none;flex-direction:column;gap:1.1rem}
+.section-block.active{display:flex}
+
+/* ── collapsible sub-sections ── */
+.collapsible-hdr{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);transition:border-color .2s}
+.collapsible-hdr:hover{border-color:var(--border2)}
+.collapsible-hdr .ch-label{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;flex:1}
+.collapsible-hdr .ch-toggle{font-size:12px;color:var(--muted);transition:transform .2s}
+.collapsible-hdr.open .ch-toggle{transform:rotate(180deg)}
+.collapsible-hdr.enabled .ch-label{color:var(--accent2)}
+.collapsible-hdr.enabled{border-color:rgba(160,126,232,.35)}
+.collapsible-body{display:none;flex-direction:column;gap:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);border-top:none;border-top-left-radius:0;border-top-right-radius:0;margin-top:-1px}
+.collapsible-body.open{display:flex}
+
+/* ── upload zones ── */
+.upload-zone{border:1px dashed var(--border2);border-radius:var(--r);min-height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s,background .2s;position:relative;overflow:hidden}
+.upload-zone:hover{border-color:var(--accent);background:rgba(124,92,191,0.05)}
+.upload-zone.has-image{border-style:solid;border-color:var(--accent)}
+.upload-zone.teal-zone:hover{border-color:var(--teal)}
+.upload-zone.teal-zone.has-image{border-color:var(--teal)}
+.upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none;background:none}
+.upload-zone img{width:100%;height:110px;object-fit:cover;display:block;border-radius:var(--r)}
+.upload-hint{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;pointer-events:none}
+.upload-clear{position:absolute;top:5px;right:5px;width:20px;height:20px;background:rgba(0,0,0,.7);border:none;border-radius:50%;color:#fff;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:2;line-height:1}
+.upload-zone.has-image .upload-clear{display:flex}
+
+/* ── LoRA cards ── */
+.lora-list{display:flex;flex-direction:column;gap:6px}
+.lora-card{background:var(--surface3);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;transition:border-color .2s}
+.lora-card.on{border-color:rgba(160,126,232,.45)}
+.lora-card-top{display:flex;align-items:center;gap:8px}
+.lora-toggle{width:28px;height:16px;background:var(--surface);border:1px solid var(--border2);border-radius:100px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.lora-toggle.on{background:var(--accent);border-color:var(--accent)}
+.lora-toggle::after{content:'';position:absolute;width:10px;height:10px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform .2s}
+.lora-toggle.on::after{transform:translateX(12px)}
+.lora-name{flex:1;font-size:12px;font-family:var(--mono);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lora-del{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s}
+.lora-del:hover{color:var(--red)}
+.lora-weight-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+.add-lora-row{display:flex;gap:5px}
+.add-lora-row input{flex:1;font-size:12px;font-family:var(--mono)}
+.add-lora-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--accent2);font-size:18px;line-height:1;cursor:pointer;transition:border-color .2s}
+.add-lora-btn:hover{border-color:var(--accent)}
+
+/* ── preset cards ── */
+.preset-grid{display:flex;flex-direction:column;gap:6px}
+.preset-card{background:var(--surface3);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;cursor:pointer;transition:border-color .2s}
+.preset-card:hover{border-color:var(--border2)}
+.preset-card.active-preset{border-color:rgba(160,126,232,.5);background:rgba(124,92,191,0.08)}
+.preset-card-top{display:flex;align-items:center;gap:8px}
+.preset-name{flex:1;font-size:12px;font-family:var(--mono);color:var(--text)}
+.preset-del{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0 2px;line-height:1;transition:color .15s}
+.preset-del:hover{color:var(--red)}
+.preset-preview{font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preset-save-row{display:flex;gap:5px}
+.preset-save-row input{flex:1;font-size:12px;font-family:var(--mono)}
+.preset-save-btn{padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--accent2);font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;transition:border-color .2s}
+.preset-save-btn:hover{border-color:var(--accent)}
+
+/* ── generate btn + progress ── */
+.btn-gen{width:100%;padding:11px;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:var(--sans);letter-spacing:.04em;cursor:pointer;transition:background .2s,box-shadow .2s,transform .1s}
+.btn-gen:hover{background:var(--accent2);box-shadow:0 0 20px var(--glow)}
+.btn-gen:active{transform:scale(0.98)}
+.btn-gen:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.progress-wrap{height:2px;background:var(--surface2);border-radius:2px;overflow:hidden;opacity:0;transition:opacity .3s}
+.progress-wrap.active{opacity:1}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0%;transition:width .4s}
+
+/* ── hint blocks ── */
+.hint-block{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:10px}
+.hint-block code{color:var(--accent2)}
+
+/* ── main output ── */
+main{background:var(--bg);overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:12px}
+main::-webkit-scrollbar{width:4px}
+main::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-family:var(--mono);font-size:12px;border:1px dashed var(--border);border-radius:var(--r);min-height:400px}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.img-card{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--surface);aspect-ratio:2/3}
+.img-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;cursor:zoom-in}
+.img-card:hover img{transform:scale(1.02)}
+.img-card-actions{position:absolute;bottom:0;left:0;right:0;padding:8px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);display:flex;gap:4px;flex-wrap:wrap;opacity:0;transition:opacity .2s}
+.img-card:hover .img-card-actions{opacity:1}
+.img-action-btn{padding:4px 9px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:100px;color:#fff;font-size:10px;font-family:var(--mono);cursor:pointer;transition:background .15s}
+.img-action-btn:hover{background:rgba(255,255,255,.25)}
+.gen-meta{font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);display:none;line-height:1.8}
+.gen-meta.show{display:block}
+
+/* ── lightbox ── */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;align-items:center;justify-content:center}
+.lightbox.open{display:flex}
+.lightbox img{max-width:90vw;max-height:90vh;border-radius:var(--r)}
+.lightbox-close{position:absolute;top:20px;right:20px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ── toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#2d1b1b;border:1px solid var(--red);border-radius:var(--r);color:var(--red);font-family:var(--mono);font-size:12px;padding:10px 16px;max-width:340px;z-index:999;transform:translateY(80px);opacity:0;transition:transform .3s,opacity .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#1a2d1a;border-color:var(--green);color:var(--green)}
+
+/* ── GALLERY ─────────────────────────────────────────── */
+.gallery-toolbar{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding:12px;overflow-y:auto;flex:1}
+.gallery-grid::-webkit-scrollbar{width:4px}
+.gallery-grid::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.gal-card{position:relative;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);background:var(--surface);aspect-ratio:2/3;cursor:pointer;transition:border-color .15s}
+.gal-card:hover{border-color:var(--border2)}
+.gal-card.selected{border-color:var(--accent);border-width:2px}
+.gal-card img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-card-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;flex-direction:column;justify-content:flex-end;padding:8px;gap:4px}
+.gal-card:hover .gal-card-overlay{display:flex}
+.gal-card-meta{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.7);line-height:1.5;overflow:hidden;max-height:48px}
+.gal-card-actions{display:flex;gap:4px}
+.gal-act-btn{flex:1;padding:3px 6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:4px;color:#fff;font-size:10px;font-family:var(--mono);cursor:pointer;text-align:center;transition:background .15s}
+.gal-act-btn:hover{background:rgba(255,255,255,.25)}
+.gal-act-btn.del:hover{background:rgba(255,80,80,.4);border-color:var(--red)}
+.gal-empty{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;padding:60px 20px;grid-column:1/-1}
+.gal-tag{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:100px;background:rgba(160,126,232,.15);border:1px solid rgba(160,126,232,.3);color:var(--accent2);margin:1px;cursor:pointer}
+.gal-tag:hover{background:rgba(160,126,232,.3)}
+
+/* queue badge */
+.queue-badge{display:none;font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:100px;border:1px solid var(--amber);color:var(--amber);background:rgba(251,191,36,.08);animation:blink .8s infinite}
+.queue-badge.show{display:inline-flex;align-items:center;gap:5px}
+
+/* idle indicator */
+.idle-bar{height:2px;background:var(--surface2);position:fixed;bottom:0;left:0;right:0;z-index:50}
+.idle-bar-fill{height:100%;background:var(--accent);transition:width 60s linear}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">sd<span>/</span>webui <span style="color:var(--border2)">—</span> <span>studio</span></div>
+  <div class="header-badges">
+    <span class="badge" id="badgeIPA">ip-adapter</span>
+    <span class="badge" id="badgeCN">controlnet</span>
+    <span class="badge" id="badgeLora">loras: 0</span>
+    <span class="badge" id="badgePreset">no preset</span>
+    <span class="queue-badge" id="queueBadge">⏳ <span id="queuePos">0</span> in queue</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button style="padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:var(--rs);color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .15s" onclick="openGallery()" onmouseover="this.style.borderColor='var(--border2)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🖼 gallery</button>
+    <div class="status-pill" onclick="checkStatus()">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">not connected</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── SIDEBAR ── -->
+<aside>
+
+  <!-- API -->
+  <div class="field-group">
+    <div class="field-label">API config</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:5px">
+        <input type="text" id="apiBase" value="http://localhost:3000" placeholder="http://localhost:3000">
+        <button class="ping-btn" onclick="checkStatus()">ping</button>
+      </div>
+      <input type="text" id="apiKey" placeholder="x-api-key" style="font-family:var(--mono);font-size:12px">
+    </div>
+  </div>
+
+  <!-- Top-level tabs -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="setMode('txt2img',this)">txt2img</button>
+    <button class="mode-tab" onclick="setMode('img2img',this)">img2img</button>
+    <button class="mode-tab" onclick="setMode('consistency',this)">consist.</button>
+    <button class="mode-tab" onclick="setMode('loras',this)">LoRAs</button>
+    <button class="mode-tab" onclick="setMode('presets',this)">presets</button>
+  </div>
+
+  <!-- ══════════════ TXT2IMG ══════════════ -->
+  <div class="section-block active" id="sec-txt2img">
+    <div class="field-group">
+      <div class="field-label">prompt <span id="activePresetLabel" style="font-size:9px;color:var(--accent2);margin-left:auto"></span></div>
+      <textarea id="prompt" rows="4" placeholder="a cinematic portrait, golden hour..."></textarea>
+    </div>
+    <div class="field-group">
+      <div class="field-label">negative prompt</div>
+      <textarea id="negPrompt" rows="2">blurry, low quality, deformed, ugly, bad anatomy, watermark, text</textarea>
+    </div>
+    <div class="field-group">
+      <div class="field-label">resolution</div>
+      <div class="grid2">
+        <select id="width"><option value="512">512 w</option><option value="640">640 w</option><option value="768" selected>768 w</option><option value="896">896 w</option><option value="1024">1024 w</option></select>
+        <select id="height"><option value="512">512 h</option><option value="640">640 h</option><option value="768">768 h</option><option value="1024" selected>1024 h</option><option value="1152">1152 h</option></select>
+      </div>
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-top"><span class="slabel">steps</span><span class="sval" id="stepsVal">28</span></div>
+      <input type="range" id="steps" min="10" max="60" step="1" value="28" oninput="stepsVal.textContent=this.value">
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-top"><span class="slabel">cfg scale</span><span class="sval" id="cfgVal">7.0</span></div>
+      <input type="range" id="cfg" min="1" max="15" step="0.5" value="7" oninput="cfgVal.textContent=parseFloat(this.value).toFixed(1)">
+    </div>
+    <div class="grid2">
+      <div class="field-group">
+        <div class="field-label">sampler</div>
+        <select id="sampler"><option>DPM++ 2M Karras</option><option>DPM++ SDE Karras</option><option>Euler a</option><option>Euler</option><option>DDIM</option><option>UniPC</option></select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">batch</div>
+        <select id="batch"><option value="1" selected>1</option><option value="2">2</option><option value="4">4</option></select>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">seed</div>
+      <div class="seed-row">
+        <input type="text" id="seed" value="-1">
+        <button class="mini-btn" onclick="seed.value=Math.floor(Math.random()*999999999)">rand</button>
+        <button class="mini-btn" onclick="seed.value='-1'">∅</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">quick tags</div>
+      <div class="tags">
+        <span class="tag" onclick="addTag('masterpiece, best quality')">masterpiece</span>
+        <span class="tag" onclick="addTag('photorealistic')">photorealistic</span>
+        <span class="tag" onclick="addTag('cinematic lighting')">cinematic</span>
+        <span class="tag" onclick="addTag('8k, ultra detailed')">8k</span>
+        <span class="tag" onclick="addTag('bokeh, depth of field')">bokeh</span>
+        <span class="tag" onclick="addTag('studio lighting')">studio</span>
+        <span class="tag" onclick="addTag('oil painting style')">oil paint</span>
+        <span class="tag" onclick="addTag('anime style')">anime</span>
+        <span class="tag" onclick="addTag('hyperrealistic, DSLR')">DSLR</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ IMG2IMG ══════════════ -->
+  <div class="section-block" id="sec-img2img">
+    <div class="field-group">
+      <div class="field-label">input image</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="imgUpload" accept="image/*" onchange="handleUpload(event,'uploadPreview','uploadZone','uploadHint',b=>uploadedBase64=b)">
+        <div class="upload-hint" id="uploadHint">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 5px;opacity:.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          drop or click to upload
+        </div>
+        <img id="uploadPreview" style="display:none" alt="">
+        <button class="upload-clear" onclick="clearUpload(event,'uploadPreview','uploadZone','uploadHint',()=>uploadedBase64=null)">✕</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">prompt</div>
+      <textarea id="i2iPrompt" rows="3" placeholder="transform this image..."></textarea>
+    </div>
+    <div class="field-group">
+      <div class="field-label">negative prompt</div>
+      <textarea id="i2iNeg" rows="2">blurry, low quality, deformed, watermark</textarea>
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-top"><span class="slabel">denoise strength</span><span class="sval" id="denoiseVal">0.65</span></div>
+      <input type="range" id="denoise" min="0.05" max="1" step="0.05" value="0.65" oninput="denoiseVal.textContent=parseFloat(this.value).toFixed(2)">
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-top"><span class="slabel">steps</span><span class="sval" id="i2iStepsVal">28</span></div>
+      <input type="range" id="i2iSteps" min="10" max="60" step="1" value="28" oninput="i2iStepsVal.textContent=this.value">
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-top"><span class="slabel">cfg scale</span><span class="sval" id="i2iCfgVal">7.0</span></div>
+      <input type="range" id="i2iCfg" min="1" max="15" step="0.5" value="7" oninput="i2iCfgVal.textContent=parseFloat(this.value).toFixed(1)">
+    </div>
+    <div class="grid2">
+      <div class="field-group">
+        <div class="field-label">sampler</div>
+        <select id="i2iSampler"><option>DPM++ 2M Karras</option><option>DPM++ SDE Karras</option><option>Euler a</option><option>Euler</option><option>DDIM</option></select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">seed</div>
+        <input type="text" id="i2iSeed" value="-1" style="font-family:var(--mono);font-size:12px">
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">output size</div>
+      <div class="grid2">
+        <select id="i2iWidth"><option value="512">512 w</option><option value="640">640 w</option><option value="768" selected>768 w</option><option value="1024">1024 w</option></select>
+        <select id="i2iHeight"><option value="512">512 h</option><option value="640">640 h</option><option value="768">768 h</option><option value="1024" selected>1024 h</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ CONSISTENCY (IP-Adapter + ControlNet) ══════════════ -->
+  <div class="section-block" id="sec-consistency">
+
+    <!-- IP-Adapter -->
+    <div>
+      <div class="collapsible-hdr" id="ipaHdr" onclick="toggleCollapsible('ipa')">
+        <span class="ch-label">IP-Adapter <span style="color:var(--teal);font-size:9px">character reference</span></span>
+        <span class="ch-toggle">▾</span>
+      </div>
+      <div class="collapsible-body" id="ipaBody">
+        <div class="field-group">
+          <div class="field-label">reference image <span class="lbadge lbadge-teal">face/style guide</span></div>
+          <div class="upload-zone teal-zone" id="ipaZone">
+            <input type="file" id="ipaUpload" accept="image/*" onchange="handleUpload(event,'ipaPreview','ipaZone','ipaHint',b=>ipaBase64=b)">
+            <div class="upload-hint" id="ipaHint">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 5px;opacity:.4"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              upload character reference
+            </div>
+            <img id="ipaPreview" style="display:none" alt="">
+            <button class="upload-clear" onclick="clearUpload(event,'ipaPreview','ipaZone','ipaHint',()=>ipaBase64=null)">✕</button>
+          </div>
+        </div>
+        <div class="slider-wrap">
+          <div class="slider-top"><span class="slabel">ip-adapter weight</span><span class="sval" id="ipaWeightVal" style="color:var(--teal)">0.6</span></div>
+          <input type="range" class="teal" id="ipaWeight" min="0.1" max="1.5" step="0.05" value="0.6" oninput="ipaWeightVal.textContent=parseFloat(this.value).toFixed(2)">
+        </div>
+        <div class="field-group">
+          <div class="field-label">model</div>
+          <select id="ipaModel">
+            <option value="ip-adapter_sd15">ip-adapter_sd15 (general)</option>
+            <option value="ip-adapter-plus_sd15">ip-adapter-plus_sd15 (detailed)</option>
+            <option value="ip-adapter-plus-face_sd15" selected>ip-adapter-plus-face_sd15 (face)</option>
+            <option value="ip-adapter_sdxl">ip-adapter_sdxl (SDXL)</option>
+            <option value="ip-adapter-plus_sdxl_vit-h">ip-adapter-plus_sdxl_vit-h (SDXL+)</option>
+          </select>
+        </div>
+        <div class="hint-block" style="border:none;padding:0">
+          Use <code>face</code> variant for character portraits. Upload a clear, front-facing reference. Higher weight = stronger face adherence. Combine with LoRA for best results.
+        </div>
+      </div>
+    </div>
+
+    <!-- ControlNet -->
+    <div>
+      <div class="collapsible-hdr" id="cnHdr" onclick="toggleCollapsible('cn')">
+        <span class="ch-label">ControlNet <span style="color:var(--amber);font-size:9px">pose / structure</span></span>
+        <span class="ch-toggle">▾</span>
+      </div>
+      <div class="collapsible-body" id="cnBody">
+        <div class="field-group">
+          <div class="field-label">control image <span class="lbadge lbadge-amber">pose / depth / edge</span></div>
+          <div class="upload-zone" style="border-color:rgba(251,191,36,.3)" id="cnZone">
+            <input type="file" id="cnUpload" accept="image/*" onchange="handleUpload(event,'cnPreview','cnZone','cnHint',b=>cnBase64=b)">
+            <div class="upload-hint" id="cnHint">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:block;margin:0 auto 5px;opacity:.4"><circle cx="12" cy="5" r="2"/><path d="M12 7v5m0 0-3 3m3-3 3 3M9 18h6"/></svg>
+              pose / reference image
+            </div>
+            <img id="cnPreview" style="display:none" alt="">
+            <button class="upload-clear" onclick="clearUpload(event,'cnPreview','cnZone','cnHint',()=>cnBase64=null)">✕</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field-group">
+            <div class="field-label">preprocessor</div>
+            <select id="cnPreprocessor">
+              <option value="none">none (raw map)</option>
+              <option value="openpose_full" selected>openpose_full</option>
+              <option value="openpose_faceonly">openpose_face</option>
+              <option value="openpose_hand">openpose_hand</option>
+              <option value="canny">canny</option>
+              <option value="depth_midas">depth_midas</option>
+              <option value="depth_leres">depth_leres</option>
+              <option value="lineart_realistic">lineart</option>
+              <option value="reference_only">reference_only</option>
+              <option value="tile_resample">tile_resample</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <div class="field-label">model</div>
+            <select id="cnModel">
+              <option value="control_v11p_sd15_openpose">openpose sd1.5</option>
+              <option value="control_v11f1p_sd15_depth">depth sd1.5</option>
+              <option value="control_v11p_sd15_canny">canny sd1.5</option>
+              <option value="control_v11p_sd15_lineart">lineart sd1.5</option>
+              <option value="control_v11e_sd15_ip2p">ip2p sd1.5</option>
+            </select>
+          </div>
+        </div>
+        <div class="slider-wrap">
+          <div class="slider-top"><span class="slabel">controlnet weight</span><span class="sval" id="cnWeightVal" style="color:var(--amber)">0.75</span></div>
+          <input type="range" class="amber" id="cnWeight" min="0.1" max="2" step="0.05" value="0.75" oninput="cnWeightVal.textContent=parseFloat(this.value).toFixed(2)">
+        </div>
+        <div class="grid2">
+          <div class="slider-wrap">
+            <div class="slider-top"><span class="slabel">start %</span><span class="sval" id="cnStartVal" style="color:var(--amber)">0.0</span></div>
+            <input type="range" class="amber" id="cnStart" min="0" max="1" step="0.05" value="0" oninput="cnStartVal.textContent=parseFloat(this.value).toFixed(1)">
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-top"><span class="slabel">end %</span><span class="sval" id="cnEndVal" style="color:var(--amber)">1.0</span></div>
+            <input type="range" class="amber" id="cnEnd" min="0" max="1" step="0.05" value="1" oninput="cnEndVal.textContent=parseFloat(this.value).toFixed(1)">
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">control mode</div>
+          <select id="cnMode">
+            <option value="0">balanced</option>
+            <option value="1">my prompt is more important</option>
+            <option value="2">controlnet is more important</option>
+          </select>
+        </div>
+        <div class="hint-block" style="border:none;padding:0">
+          <code>openpose</code> locks body/face position. <code>reference_only</code> uses a photo as a loose style guide without a model file. <code>tile</code> great for upscaling consistency.
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /consistency -->
+
+  <!-- ══════════════ LORAS ══════════════ -->
+  <div class="section-block" id="sec-loras">
+    <div class="field-group">
+      <div class="field-label">add LoRA</div>
+      <div class="add-lora-row">
+        <input type="text" id="loraNameInput" placeholder="filename (no extension)">
+        <button class="add-lora-btn" onclick="addLora()">+</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">loaded <span id="loraCount" style="color:var(--accent2);font-size:10px"></span></div>
+      <div class="lora-list" id="loraList">
+        <div id="loraEmpty" style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:6px 0">no LoRAs added yet</div>
+      </div>
+    </div>
+    <div class="hint-block">
+      Active LoRAs inject as <code>&lt;lora:name:weight&gt;</code> into every prompt automatically.<br>
+      Recommended weights: <code>0.5–0.8</code> for character LoRAs, <code>0.3–0.5</code> for subtle style.
+    </div>
+  </div>
+
+  <!-- ══════════════ PRESETS ══════════════ -->
+  <div class="section-block" id="sec-presets">
+    <div class="field-group">
+      <div class="field-label">save current prompt as preset</div>
+      <div class="preset-save-row">
+        <input type="text" id="presetNameInput" placeholder="e.g. Character A — fantasy">
+        <button class="preset-save-btn" onclick="savePreset()">save</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">saved presets <span id="presetCount" style="color:var(--accent2);font-size:10px"></span></div>
+      <div class="preset-grid" id="presetGrid">
+        <div id="presetEmpty" style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:6px 0">no presets saved yet</div>
+      </div>
+    </div>
+    <div class="hint-block">
+      Presets save your <code>prompt</code>, <code>negative prompt</code>, and all active <code>LoRAs</code>. Load a preset to instantly restore a full character setup across sessions.
+    </div>
+  </div>
+
+  <!-- Generate -->
+  <button class="btn-gen" id="genBtn" onclick="generate()">generate</button>
+  <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+
+  <!-- Idle shutdown setting -->
+  <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+    <div class="field-group">
+      <div class="field-label" style="display:flex;align-items:center;justify-content:space-between">
+        auto-shutdown if idle
+        <span id="idleStatusLabel" style="font-size:9px;color:var(--muted)">off</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="idleSelect" onchange="setIdleMinutes(this.value)" style="flex:1;font-size:11px;padding:5px 8px">
+          <option value="0">disabled</option>
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="60">60 min</option>
+          <option value="120">2 hours</option>
+        </select>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;margin-top:4px">
+        Stops the RunPod pod after this much idle time. Requires <code style="color:var(--accent2)">RUNPOD_API_KEY</code> + <code style="color:var(--accent2)">RUNPOD_POD_ID</code> env vars on the server.
+      </div>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ── MAIN OUTPUT ── -->
+<main>
+  <div class="empty-state" id="emptyState">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="opacity:.25">
+      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+    </svg>
+    <span>configure API &amp; generate</span>
+  </div>
+  <div class="img-grid" id="imgGrid" style="display:none"></div>
+  <div class="gen-meta" id="genMeta"></div>
+</main>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let polling      = null;
+let currentMode  = 'txt2img';
+let uploadedBase64 = null;   // img2img
+let ipaBase64    = null;     // ip-adapter reference
+let cnBase64     = null;     // controlnet control image
+let loras        = [];       // [{name,weight,enabled}]
+let presets      = JSON.parse(localStorage.getItem('sd_presets') || '[]');
+let activePreset = null;
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const getBase    = () => $('apiBase').value.replace(/\/$/,'');
+const getHeaders = () => ({'Content-Type':'application/json','x-api-key':$('apiKey').value});
+
+function showToast(msg, type='error'){
+  const t=$('toast');
+  t.className='toast '+type;
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),4000);
+}
+
+function updateBadges(){
+  const ipaOn = ipaBase64 !== null;
+  const cnOn  = cnBase64  !== null;
+  const loraActive = loras.filter(l=>l.enabled).length;
+  $('badgeIPA').className   = 'badge'+(ipaOn?' on':'');
+  $('badgeCN').className    = 'badge'+(cnOn?' on':'');
+  $('badgeLora').textContent = `loras: ${loraActive}`;
+  $('badgeLora').className  = 'badge'+(loraActive>0?' on':'');
+  $('badgePreset').textContent = activePreset || 'no preset';
+  $('badgePreset').className   = 'badge'+(activePreset?' on':'');
+}
+
+/* ══════════════════════════════════════════
+   MODE / COLLAPSIBLE
+══════════════════════════════════════════ */
+function setMode(mode, btn){
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.section-block').forEach(s=>s.classList.remove('active'));
+  $('sec-'+mode).classList.add('active');
+}
+
+function toggleCollapsible(key){
+  const hdr  = $(key+'Hdr');
+  const body = $(key+'Body');
+  const isOpen = body.classList.contains('open');
+  hdr.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
+  // mark as enabled if has content
+  if(key==='ipa') hdr.classList.toggle('enabled', !isOpen && ipaBase64!==null);
+  if(key==='cn')  hdr.classList.toggle('enabled', !isOpen && cnBase64!==null);
+}
+
+/* ══════════════════════════════════════════
+   STATUS
+══════════════════════════════════════════ */
+async function checkStatus(){
+  const dot=$('statusDot'), txt=$('statusText');
+  dot.className='dot loading'; txt.textContent='checking...';
+  try{
+    const r=await fetch(getBase()+'/health',{signal:AbortSignal.timeout(5000)});
+    const d=await r.json();
+    dot.className=d.status==='ok'?'dot online':'dot error';
+    txt.textContent=d.status==='ok'?'SD online':'SD offline';
+  }catch{ dot.className='dot error'; txt.textContent='unreachable'; }
+}
+
+/* ══════════════════════════════════════════
+   TAG INSERTION
+══════════════════════════════════════════ */
+function addTag(t){
+  const el=$(currentMode==='img2img'?'i2iPrompt':'prompt');
+  el.value=(el.value?el.value+', ':'')+t;
+}
+
+/* ══════════════════════════════════════════
+   UPLOAD HELPERS (generic)
+══════════════════════════════════════════ */
+function handleUpload(e, previewId, zoneId, hintId, cb){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const b64=ev.target.result.split(',')[1];
+    cb(b64);
+    $(previewId).src=ev.target.result;
+    $(previewId).style.display='block';
+    $(hintId).style.display='none';
+    $(zoneId).classList.add('has-image');
+    // update header badge for IPA/CN
+    if(zoneId==='ipaZone'){$('ipaHdr').classList.add('enabled');updateBadges();}
+    if(zoneId==='cnZone'){$('cnHdr').classList.add('enabled');updateBadges();}
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearUpload(e, previewId, zoneId, hintId, cb){
+  e.stopPropagation();
+  cb();
+  $(previewId).style.display='none';
+  $(hintId).style.display='block';
+  $(zoneId).classList.remove('has-image');
+  if(zoneId==='ipaZone'){$('ipaHdr').classList.remove('enabled');updateBadges();}
+  if(zoneId==='cnZone'){$('cnHdr').classList.remove('enabled');updateBadges();}
+}
+
+/* ══════════════════════════════════════════
+   LORA MANAGER
+══════════════════════════════════════════ */
+function addLora(){
+  let name=$('loraNameInput').value.trim().replace(/\.(safetensors|pt|ckpt)$/i,'');
+  if(!name) return;
+  if(loras.find(l=>l.name===name)){ showToast('LoRA already in list'); return; }
+  loras.push({name,weight:0.7,enabled:true});
+  $('loraNameInput').value='';
+  renderLoras();
+  updateBadges();
+}
+
+function removeLora(idx){ loras.splice(idx,1); renderLoras(); updateBadges(); }
+function toggleLora(idx){ loras[idx].enabled=!loras[idx].enabled; renderLoras(); updateBadges(); }
+function setLoraWeight(idx,val){ loras[idx].weight=parseFloat(val); }
+
+function renderLoras(){
+  const list=$('loraList');
+  const active=loras.filter(l=>l.enabled).length;
+  $('loraCount').textContent=loras.length?`${active}/${loras.length} active`:'';
+  if(!loras.length){ list.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:6px 0">no LoRAs added yet</div>'; return; }
+  list.innerHTML=loras.map((l,i)=>`
+    <div class="lora-card ${l.enabled?'on':''}">
+      <div class="lora-card-top">
+        <div class="lora-toggle ${l.enabled?'on':''}" onclick="toggleLora(${i})"></div>
+        <span class="lora-name" title="${l.name}">${l.name}</span>
+        <button class="lora-del" onclick="removeLora(${i})">✕</button>
+      </div>
+      <div class="lora-weight-row">
+        <span class="slabel">weight</span>
+        <input type="range" min="0.05" max="1.5" step="0.05" value="${l.weight}"
+          oninput="setLoraWeight(${i},this.value);this.nextElementSibling.textContent=parseFloat(this.value).toFixed(2)">
+        <span class="sval">${l.weight.toFixed(2)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function buildLoraStr(p){
+  const active=loras.filter(l=>l.enabled);
+  return active.length ? p+' '+active.map(l=>`<lora:${l.name}:${l.weight.toFixed(2)}>`).join(' ') : p;
+}
+
+/* ══════════════════════════════════════════
+   PRESET MANAGER
+══════════════════════════════════════════ */
+function savePreset(){
+  const name=$('presetNameInput').value.trim();
+  if(!name){ showToast('give the preset a name'); return; }
+  const existing=presets.findIndex(p=>p.name===name);
+  const preset={
+    name,
+    prompt:$('prompt').value,
+    negPrompt:$('negPrompt').value,
+    loras:JSON.parse(JSON.stringify(loras)),
+    createdAt:Date.now()
+  };
+  if(existing>=0) presets[existing]=preset;
+  else presets.push(preset);
+  localStorage.setItem('sd_presets',JSON.stringify(presets));
+  $('presetNameInput').value='';
+  renderPresets();
+  showToast('preset saved: '+name,'success');
+}
+
+function loadPreset(idx){
+  const p=presets[idx];
+  $('prompt').value=p.prompt;
+  $('negPrompt').value=p.negPrompt;
+  loras=JSON.parse(JSON.stringify(p.loras||[]));
+  renderLoras();
+  activePreset=p.name;
+  $('activePresetLabel').textContent='['+p.name+']';
+  renderPresets();
+  updateBadges();
+  showToast('loaded: '+p.name,'success');
+}
+
+function deletePreset(idx){
+  if(presets[idx].name===activePreset){ activePreset=null; $('activePresetLabel').textContent=''; }
+  presets.splice(idx,1);
+  localStorage.setItem('sd_presets',JSON.stringify(presets));
+  renderPresets();
+  updateBadges();
+}
+
+function renderPresets(){
+  const grid=$('presetGrid');
+  $('presetCount').textContent=presets.length?`(${presets.length})`:'';
+  if(!presets.length){ grid.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:6px 0">no presets saved yet</div>'; return; }
+  grid.innerHTML=presets.map((p,i)=>`
+    <div class="preset-card ${p.name===activePreset?'active-preset':''}" onclick="loadPreset(${i})">
+      <div class="preset-card-top">
+        <span class="preset-name">${p.name}</span>
+        <button class="preset-del" onclick="event.stopPropagation();deletePreset(${i})">✕</button>
+      </div>
+      <div class="preset-preview">${p.prompt||'(empty prompt)'}</div>
+      ${p.loras&&p.loras.length?`<div style="font-family:var(--mono);font-size:9px;color:var(--accent2);margin-top:3px">${p.loras.filter(l=>l.enabled).length} LoRA(s)</div>`:''}
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════
+   BUILD ALWAYSON_SCRIPTS (ControlNet + IP-Adapter)
+══════════════════════════════════════════ */
+function buildAlwaysOnScripts(){
+  const scripts={};
+  const cnUnits=[];
+
+  // IP-Adapter via ControlNet extension
+  if(ipaBase64){
+    cnUnits.push({
+      enabled:true,
+      image:ipaBase64,
+      module:'ip-adapter_clip_sd15',
+      model:$('ipaModel').value,
+      weight:parseFloat($('ipaWeight').value),
+      guidance_start:0,
+      guidance_end:1,
+      control_mode:0,
+      pixel_perfect:true,
+      processor_res:512
+    });
+  }
+
+  // ControlNet pose/depth/edge
+  if(cnBase64){
+    cnUnits.push({
+      enabled:true,
+      image:cnBase64,
+      module:$('cnPreprocessor').value,
+      model:$('cnModel').value,
+      weight:parseFloat($('cnWeight').value),
+      guidance_start:parseFloat($('cnStart').value),
+      guidance_end:parseFloat($('cnEnd').value),
+      control_mode:parseInt($('cnMode').value),
+      pixel_perfect:true,
+      processor_res:512
+    });
+  }
+
+  if(cnUnits.length){
+    scripts['controlnet']={ args: cnUnits };
+  }
+
+  return Object.keys(scripts).length ? scripts : undefined;
+}
+
+/* ══════════════════════════════════════════
+   GENERATE
+══════════════════════════════════════════ */
+async function generate(){
+  const btn=$('genBtn'), pw=$('progressWrap'), pb=$('progressBar');
+  btn.disabled=true; btn.textContent='generating...';
+  pw.classList.add('active'); pb.style.width='0%';
+  $('genMeta').classList.remove('show');
+
+  polling=setInterval(pollProgress,900);
+  const alwayson=buildAlwaysOnScripts();
+
+  try{
+    let data, metaParts=[];
+
+    if(currentMode==='img2img'){
+      if(!uploadedBase64){ showToast('upload an image first'); throw new Error('noimg'); }
+      const prompt=buildLoraStr($('i2iPrompt').value||'');
+      const payload={
+        prompt, negative_prompt:$('i2iNeg').value,
+        init_images:[uploadedBase64],
+        denoising_strength:parseFloat($('denoise').value),
+        steps:parseInt($('i2iSteps').value),
+        cfg_scale:parseFloat($('i2iCfg').value),
+        sampler_name:$('i2iSampler').value,
+        seed:parseInt($('i2iSeed').value)||-1,
+        width:parseInt($('i2iWidth').value),
+        height:parseInt($('i2iHeight').value),
+      };
+      if(alwayson) payload.alwayson_scripts=alwayson;
+      const r=await fetch(getBase()+'/generate/img2img',{method:'POST',headers:getHeaders(),body:JSON.stringify(payload)});
+      if(!r.ok) throw new Error((await r.json()).error||r.statusText);
+      data=await r.json();
+      $('i2iSeed').value=data.seed;
+      metaParts=['img2img',`seed ${data.seed}`,`denoise ${parseFloat($('denoise').value).toFixed(2)}`,`${payload.width}×${payload.height}`,`${payload.steps} steps`];
+    } else {
+      const prompt=buildLoraStr($('prompt').value||'a beautiful scene');
+      const payload={
+        prompt, negative_prompt:$('negPrompt').value,
+        width:parseInt($('width').value), height:parseInt($('height').value),
+        steps:parseInt($('steps').value), cfg_scale:parseFloat($('cfg').value),
+        sampler_name:$('sampler').value, seed:parseInt($('seed').value)||-1,
+        batch_size:parseInt($('batch').value),
+      };
+      if(alwayson) payload.alwayson_scripts=alwayson;
+      const r=await fetch(getBase()+'/generate/txt2img',{method:'POST',headers:getHeaders(),body:JSON.stringify(payload)});
+      if(!r.ok) throw new Error((await r.json()).error||r.statusText);
+      data=await r.json();
+      $('seed').value=data.seed;
+      metaParts=['txt2img',`seed ${data.seed}`,`${payload.width}×${payload.height}`,`${payload.steps} steps`,`cfg ${payload.cfg_scale.toFixed(1)}`];
+    }
+
+    if(ipaBase64) metaParts.push('ip-adapter ×'+parseFloat($('ipaWeight').value).toFixed(2));
+    if(cnBase64)  metaParts.push('controlnet: '+$('cnPreprocessor').value);
+    const activeL=loras.filter(l=>l.enabled);
+    if(activeL.length) metaParts.push('loras: '+activeL.map(l=>l.name).join(', '));
+    if(activePreset) metaParts.push('preset: '+activePreset);
+
+    clearInterval(polling); polling=null;
+    pb.style.width='100%';
+    renderImages(data.images);
+    $('genMeta').textContent=metaParts.join('  ·  ');
+    $('genMeta').classList.add('show');
+
+    // auto-save to gallery
+    const meta={
+      prompt: currentMode==='img2img' ? $('i2iPrompt').value : $('prompt').value,
+      negative_prompt: currentMode==='img2img' ? $('i2iNeg').value : $('negPrompt').value,
+      seed: data.seed, model: '', width:0, height:0,
+      tags: [...loras.filter(l=>l.enabled).map(l=>l.name), currentMode],
+    };
+    saveToGallery(data.images, meta);
+    resetIdleTimer();
+
+  }catch(e){
+    clearInterval(polling); polling=null;
+    if(e.message!=='noimg') showToast('error: '+e.message);
+  }finally{
+    btn.disabled=false; btn.textContent='generate';
+    setTimeout(()=>pw.classList.remove('active'),1200);
+  }
+}
+
+async function pollProgress(){
+  try{
+    const r=await fetch(getBase()+'/progress',{headers:getHeaders()});
+    const d=await r.json();
+    $('progressBar').style.width=Math.min(Math.round((d.progress||0)*100),99)+'%';
+  }catch{}
+}
+
+/* ══════════════════════════════════════════
+   OUTPUT / IMAGE GRID
+══════════════════════════════════════════ */
+function renderImages(images){
+  $('emptyState').style.display='none';
+  const grid=$('imgGrid');
+  grid.style.display='grid'; grid.innerHTML='';
+  images.forEach((b64,i)=>{
+    const card=document.createElement('div');
+    card.className='img-card';
+    card.innerHTML=`
+      <img src="data:image/png;base64,${b64}" alt="" onclick="openLightbox(this.src)">
+      <div class="img-card-actions">
+        <button class="img-action-btn" onclick="downloadImg('${b64}',${i})">save</button>
+        <button class="img-action-btn" onclick="openLightbox('data:image/png;base64,${b64}')">expand</button>
+        <button class="img-action-btn" onclick="sendToI2I('${b64}')">→ i2i</button>
+        <button class="img-action-btn" onclick="useAsIPA('${b64}')">→ ipa</button>
+        <button class="img-action-btn" onclick="useAsCN('${b64}')">→ cn</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function sendToI2I(b64){
+  uploadedBase64=b64;
+  $('uploadPreview').src='data:image/png;base64,'+b64;
+  $('uploadPreview').style.display='block';
+  $('uploadHint').style.display='none';
+  $('uploadZone').classList.add('has-image');
+  document.querySelectorAll('.mode-tab')[1].click();
+  showToast('sent to img2img','success');
+}
+
+function useAsIPA(b64){
+  ipaBase64=b64;
+  $('ipaPreview').src='data:image/png;base64,'+b64;
+  $('ipaPreview').style.display='block';
+  $('ipaHint').style.display='none';
+  $('ipaZone').classList.add('has-image');
+  $('ipaHdr').classList.add('enabled');
+  // open consistency tab and expand IPA
+  document.querySelectorAll('.mode-tab')[2].click();
+  $('ipaHdr').classList.add('open');
+  $('ipaBody').classList.add('open');
+  updateBadges();
+  showToast('sent to IP-Adapter as reference','success');
+}
+
+function useAsCN(b64){
+  cnBase64=b64;
+  $('cnPreview').src='data:image/png;base64,'+b64;
+  $('cnPreview').style.display='block';
+  $('cnHint').style.display='none';
+  $('cnZone').classList.add('has-image');
+  $('cnHdr').classList.add('enabled');
+  document.querySelectorAll('.mode-tab')[2].click();
+  $('cnHdr').classList.add('open');
+  $('cnBody').classList.add('open');
+  updateBadges();
+  showToast('sent to ControlNet','success');
+}
+
+function openLightbox(src){ $('lightboxImg').src=src; $('lightbox').classList.add('open'); }
+function closeLightbox(){ $('lightbox').classList.remove('open'); }
+
+function downloadImg(b64,idx){
+  const seed=currentMode==='img2img'?$('i2iSeed').value:$('seed').value;
+  const a=document.createElement('a');
+  a.href='data:image/png;base64,'+b64;
+  a.download=`sd_${seed}_${idx}.png`;
+  a.click();
+}
+
+/* ══════════════════════════════════════════
+   INIT
+══════════════════════════════════════════ */
+renderPresets();
+updateBadges();
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ closeLightbox(); closeGallery(); }
+});
+
+/* ══════════════════════════════════════════
+   GALLERY
+══════════════════════════════════════════ */
+let galleryItems = [];
+let galleryFilter = { tag:'', model:'', search:'' };
+
+function openGallery(){
+  $('galleryModal').classList.add('open');
+  loadGallery();
+}
+function closeGallery(){ $('galleryModal').classList.remove('open'); }
+
+async function loadGallery(){
+  $('galGrid').innerHTML=`<div class="gal-empty">loading…</div>`;
+  try{
+    const params=new URLSearchParams();
+    if(galleryFilter.tag)    params.set('tag',galleryFilter.tag);
+    if(galleryFilter.search) params.set('search',galleryFilter.search);
+    params.set('limit','100');
+    const r=await fetch(getBase()+'/gallery?'+params,{headers:getHeaders()});
+    if(!r.ok) throw new Error('gallery unavailable');
+    const d=await r.json();
+    galleryItems=d.items||[];
+    renderGallery();
+    renderGalleryTags(d.tags||[]);
+  }catch(e){
+    $('galGrid').innerHTML=`<div class="gal-empty" style="color:var(--red)">failed to load: ${e.message}</div>`;
+  }
+}
+
+function renderGallery(){
+  const grid=$('galGrid');
+  if(!galleryItems.length){
+    grid.innerHTML=`<div class="gal-empty">no images yet — generate something!</div>`;
+    return;
+  }
+  const search=(galleryFilter.search||'').toLowerCase();
+  const items=galleryItems.filter(it=>{
+    if(search && !JSON.stringify(it).toLowerCase().includes(search)) return false;
+    if(galleryFilter.tag && !(it.tags||[]).includes(galleryFilter.tag)) return false;
+    return true;
+  });
+  $('galCount').textContent=`${items.length} image${items.length!==1?'s':''}`;
+  if(!items.length){
+    grid.innerHTML=`<div class="gal-empty">no results</div>`;
+    return;
+  }
+  grid.innerHTML=items.map(it=>`
+    <div class="gal-card" id="gc-${it.id}">
+      <img src="${getBase()}/gallery/${it.id}/image?key=${encodeURIComponent($('apiKey').value)}"
+           onerror="this.src=''" alt="">
+      <div class="gal-card-overlay">
+        <div class="gal-card-meta">${(it.prompt||'').slice(0,80)}${(it.prompt||'').length>80?'…':''}</div>
+        <div class="gal-card-meta" style="color:rgba(255,255,255,.45)">${it.model||''} · seed ${it.seed||'?'}</div>
+        <div style="margin-bottom:3px">${(it.tags||[]).map(t=>`<span class="gal-tag" onclick="filterByTag('${t}')">${t}</span>`).join('')}</div>
+        <div class="gal-card-actions">
+          <div class="gal-act-btn" onclick="galUseAsPrompt('${it.id}')">use prompt</div>
+          <div class="gal-act-btn" onclick="galSendToI2I('${it.id}')">→ i2i</div>
+          <div class="gal-act-btn del" onclick="galDelete('${it.id}')">del</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderGalleryTags(tags){
+  $('galTagFilter').innerHTML = [
+    `<span class="gal-tag ${!galleryFilter.tag?'active-tag':''}" onclick="filterByTag('')" style="${!galleryFilter.tag?'background:rgba(160,126,232,.35)':''}">all</span>`,
+    ...tags.map(t=>`<span class="gal-tag ${galleryFilter.tag===t.tag?'active-tag':''}"
+      style="${galleryFilter.tag===t.tag?'background:rgba(160,126,232,.35)':''}"
+      onclick="filterByTag('${t.tag}')">${t.tag} (${t.count})</span>`)
+  ].join('');
+}
+
+function filterByTag(tag){
+  galleryFilter.tag=tag; renderGallery();
+  renderGalleryTags([]); // will re-fetch tags on next full load
+}
+
+async function galDelete(id){
+  if(!confirm('Delete this image from gallery?')) return;
+  try{
+    await fetch(getBase()+'/gallery/'+id,{method:'DELETE',headers:getHeaders()});
+    galleryItems=galleryItems.filter(i=>i.id!==id);
+    renderGallery();
+    showToast('deleted');
+  }catch(e){ showToast('delete failed: '+e.message); }
+}
+
+async function galUseAsPrompt(id){
+  const it=galleryItems.find(i=>i.id===id);
+  if(!it) return;
+  $('prompt').value=it.prompt||'';
+  $('negPrompt').value=it.negative_prompt||$('negPrompt').value;
+  if(it.seed) $('seed').value=it.seed;
+  closeGallery();
+  showToast('prompt loaded ✓','success');
+}
+
+async function galSendToI2I(id){
+  // fetch image as blob, convert to base64
+  try{
+    const r=await fetch(getBase()+'/gallery/'+id+'/image?key='+encodeURIComponent($('apiKey').value));
+    const blob=await r.blob();
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      uploadedBase64=ev.target.result.split(',')[1];
+      $('uploadPreview').src=ev.target.result;
+      $('uploadPreview').style.display='block';
+      $('uploadHint').style.display='none';
+      $('uploadZone').classList.add('has-image');
+      document.querySelectorAll('.mode-tab')[1].click();
+      closeGallery();
+      showToast('sent to img2img','success');
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){ showToast('failed: '+e.message); }
+}
+
+/* Auto-save generated images to gallery */
+async function saveToGallery(images, meta={}){
+  try{
+    await fetch(getBase()+'/gallery/save',{
+      method:'POST', headers:getHeaders(),
+      body:JSON.stringify({ images: images.map(b64=>({ b64, ...meta })) })
+    });
+  }catch(e){ console.warn('gallery save failed:',e.message); }
+}
+
+/* ══════════════════════════════════════════
+   QUEUE POLLING
+══════════════════════════════════════════ */
+let queuePollTimer=null;
+
+function startQueuePoll(){
+  if(queuePollTimer) return;
+  queuePollTimer=setInterval(async()=>{
+    try{
+      const r=await fetch(getBase()+'/queue',{headers:getHeaders()});
+      const d=await r.json();
+      const waiting=(d.queued||0)+(d.busy?1:0);
+      const badge=$('queueBadge');
+      if(waiting>0){
+        badge.classList.add('show');
+        $('queuePos').textContent=waiting;
+      }else{
+        badge.classList.remove('show');
+        clearInterval(queuePollTimer); queuePollTimer=null;
+      }
+    }catch{ clearInterval(queuePollTimer); queuePollTimer=null; }
+  },2000);
+}
+
+/* ══════════════════════════════════════════
+   IDLE SHUTDOWN MONITOR
+══════════════════════════════════════════ */
+let idleStartTime=Date.now();
+let idleMinutes=0; // 0 = disabled
+
+function resetIdleTimer(){ idleStartTime=Date.now(); updateIdleBar(); }
+
+function updateIdleBar(){
+  if(!idleMinutes){ $('idleBar').style.display='none'; return; }
+  $('idleBar').style.display='block';
+  const elapsed=(Date.now()-idleStartTime)/1000/60;
+  const pct=Math.min((elapsed/idleMinutes)*100,100);
+  $('idleFill').style.width=pct+'%';
+  const remaining=Math.max(0,idleMinutes-elapsed);
+  $('idleBar').title=`Auto-shutdown in ${Math.round(remaining)} min`;
+}
+
+setInterval(updateIdleBar, 30_000);
+
+function setIdleMinutes(v){
+  idleMinutes=parseInt(v)||0;
+  const lbl=$('idleStatusLabel');
+  lbl.textContent=idleMinutes?`active (${idleMinutes}min)`:'off';
+  lbl.style.color=idleMinutes?'var(--amber)':'var(--muted)';
+  resetIdleTimer();
+}
+</script>
+
+<!-- ══ GALLERY MODAL ══════════════════════════════════════ -->
+<div class="modal-overlay" id="galleryModal" style="z-index:200">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);width:min(96vw,1100px);height:88vh;display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- header -->
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <div style="font-family:var(--display);font-size:20px;letter-spacing:.05em;color:var(--ink)">GALLERY</div>
+      <span id="galCount" style="font-family:var(--mono);font-size:11px;color:var(--muted)"></span>
+      <div style="flex:1"></div>
+      <input type="text" id="galSearch" placeholder="search prompts…"
+        style="width:200px;font-size:12px;padding:5px 10px;font-family:var(--mono)"
+        oninput="galleryFilter.search=this.value;renderGallery()">
+      <button onclick="loadGallery()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer">↻ refresh</button>
+      <button class="modal-close" onclick="closeGallery()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+    </div>
+
+    <!-- tag filter bar -->
+    <div id="galTagFilter" style="display:flex;gap:5px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:38px">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);align-self:center">tags:</span>
+    </div>
+
+    <!-- image grid -->
+    <div class="gallery-grid" id="galGrid">
+      <div class="gal-empty">open gallery to load images</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ IDLE BAR ══════════════════════════════════════════ -->
+<div class="idle-bar" id="idleBar" style="display:none" title="auto-shutdown timer">
+  <div class="idle-bar-fill" id="idleFill" style="width:0%"></div>
+</div>
+
+</body>
+</html>
