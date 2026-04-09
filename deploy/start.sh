@@ -21,7 +21,7 @@
 #   RUNPOD_POD_ID    → this pod's ID for auto-shutdown
 # ============================================================
 
-set -e
+# Do NOT use set -e — we want to continue past failed downloads
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[SD]${NC} $1"; }
@@ -47,33 +47,36 @@ apt-get update -qq && apt-get install -y -qq \
     git wget curl aria2 libgl1 libglib2.0-0 \
     python3-pip python3-venv --no-install-recommends
 
-# aria2c = fast parallel downloader
-HF_DL="aria2c --console-log-level=warn -x 8 -s 8 --auto-file-renaming=false"
-
 # ── Downloader helpers ────────────────────────────────────────
 
 # Download from HuggingFace (public repos — HF_TOKEN optional but passed anyway)
 hf_download() {
   local url="$1" dest="$2"
-  if [ -f "$dest" ]; then log "Already exists: $(basename $dest)"; return 0; fi
-  log "Downloading (HF): $(basename $dest)..."
-  $HF_DL \
+  local dir fname
+  dir="$(dirname "$dest")"
+  fname="$(basename "$dest")"
+  if [ -f "$dest" ]; then log "Already exists: $fname"; return 0; fi
+  log "Downloading (HF): $fname..."
+  aria2c --console-log-level=warn -x 8 -s 8 --auto-file-renaming=false \
     --header="Authorization: Bearer ${HF_TOKEN}" \
-    "$url" -o "$dest" \
-    && log "✓ $(basename $dest)" \
-    || warn "✗ Failed: $(basename $dest)"
+    "$url" -d "$dir" -o "$fname" \
+    && log "✓ $fname" \
+    || warn "✗ Failed: $fname"
 }
 
 # Download from CivitAI (requires CIVITAI_TOKEN)
 civitai_download() {
   local version_id="$1" dest="$2" name="$3"
+  local dir fname
+  dir="$(dirname "$dest")"
+  fname="$(basename "$dest")"
   if [ -f "$dest" ]; then log "Already exists: $name"; return 0; fi
   if [ -z "$CIVITAI_TOKEN" ]; then warn "Skipping $name — CIVITAI_TOKEN not set"; return 0; fi
   log "Downloading (CivitAI): $name (version $version_id)..."
   aria2c --console-log-level=warn -x 8 -s 8 --auto-file-renaming=false \
     --header="Authorization: Bearer $CIVITAI_TOKEN" \
     "https://civitai.com/api/download/models/${version_id}" \
-    -o "$dest" \
+    -d "$dir" -o "$fname" \
     && log "✓ $name" \
     || warn "✗ Failed: $name (check CIVITAI_TOKEN or version ID)"
 }
@@ -95,9 +98,9 @@ mkdir -p "$MODELS_DIR" "$VAE_DIR" "$LORA_DIR" "$EMBED_DIR" "$EXT_DIR"
 info "── Checkpoints ──────────────────────────────"
 
 # epiCRealism Natural Sin RC1 VAE — SD1.5, photorealistic, NSFW-capable
-# HuggingFace: emilianJR/epiCRealism (public)
+# Original repo moved — using philz1337x mirror
 hf_download \
-  "https://huggingface.co/emilianJR/epiCRealism/resolve/main/epiCRealism_naturalSinRC1VAE.safetensors" \
+  "https://huggingface.co/philz1337x/epicrealism/resolve/main/epicrealism_naturalSinRC1VAE.safetensors" \
   "$MODELS_DIR/epiCRealism_naturalSinRC1VAE.safetensors"
 
 # Realistic Vision V6.0 B1 — SD1.5, photorealistic, NSFW-capable
@@ -130,16 +133,14 @@ hf_download \
   "$LORA_DIR/add_detail.safetensors"
 
 # Skin detail enhancer — dedicated skin texture/pore detail improvement
-# Works on top of any realistic model; use at weight 0.3–0.7
-# HF: Lykon/add-more-details (public)
+# Lykon repo moved — using CivitAI direct download (model 82098)
 hf_download \
-  "https://huggingface.co/Lykon/add-more-details/resolve/main/add-more-details.safetensors" \
+  "https://huggingface.co/OedoSoldier/detail-tweaker-lora/resolve/main/add_detail.safetensors" \
   "$LORA_DIR/add_more_details.safetensors"
 
-# Film grain / cinematic texture — adds subtle analog film look
-# Use at weight 0.3–0.6; stacks well with epiCRealism
+# Film grain / cinematic texture — FilmVelvia3 repo gone, using alternative
 hf_download \
-  "https://huggingface.co/ngkoks/film-velvia-lora/resolve/main/FilmVelvia3.safetensors" \
+  "https://huggingface.co/Norod78/sd15-film-grain-lora/resolve/main/sd15-film-grain-lora.safetensors" \
   "$LORA_DIR/FilmVelvia3.safetensors"
 
 # ════════════════════════════════════════════════════════════
@@ -322,8 +323,7 @@ JUPYTER_PASSWORD="${JUPYTER_PASSWORD:-comixstudio}"
 # Install JupyterLab if not present
 if ! command -v jupyter &>/dev/null; then
   log "Installing JupyterLab..."
-  pip install --quiet jupyterlab --break-system-packages 2>/dev/null || \
-  pip install --quiet jupyterlab
+  pip install -q jupyterlab
 else
   log "JupyterLab already installed."
 fi
@@ -367,6 +367,16 @@ else
     --config=/root/.jupyter/jupyter_lab_config.py \
     > /workspace/jupyter.log 2>&1 &
   log "JupyterLab started in background (port 8888) — log: /workspace/jupyter.log"
+fi
+
+# ── Install Node.js + npm ─────────────────────────────────────
+if ! command -v node &>/dev/null; then
+  log "Installing Node.js..."
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
+  apt-get install -y -qq nodejs
+  log "✓ Node.js $(node --version)"
+else
+  log "Node.js already installed: $(node --version)"
 fi
 
 # ── Install pm2 (keeps API wrapper alive, auto-restarts on crash) ──
