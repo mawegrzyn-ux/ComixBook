@@ -49,12 +49,18 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ── Auth middleware ───────────────────────────────────────────
+// ── Auth middleware (header-only; query-param keys leak into logs) ──
 function auth(req, res, next) {
-  const key = req.headers["x-api-key"] || req.query.key;
-  if (key !== API_KEY) return res.status(401).json({ error: "Unauthorized" });
+  const key = req.headers["x-api-key"];
+  if (!key || key !== API_KEY) return res.status(401).json({ error: "Unauthorized" });
   next();
 }
+
+// ── Allowed base models for LoRA training (whitelist — prevents path traversal) ──
+const ALLOWED_BASE_MODELS = new Set([
+  "epiCRealism_naturalSinRC1VAE.safetensors",
+  "Realistic_Vision_V6.0_NV_B1.safetensors",
+]);
 
 // ── Input sanitiser (strip null bytes, limit prompt length) ──
 function sanitizePrompt(str) {
@@ -144,7 +150,10 @@ async function shutdownPod() {
   try {
     await axios.post(
       "https://api.runpod.io/graphql",
-      { query: `mutation { podStop(input: { podId: "${POD_ID}" }) { id } }` },
+      {
+        query: "mutation StopPod($podId: String!) { podStop(input: { podId: $podId }) { id } }",
+        variables: { podId: POD_ID },
+      },
       { headers: { "Content-Type": "application/json", Authorization: `Bearer ${RUNPOD_KEY}` } }
     );
   } catch (err) {
@@ -365,11 +374,12 @@ app.post("/inpaint", auth, async (req, res) => {
     ...(alwayson_scripts && { alwayson_scripts }),
   };
 
-  try {
-    const { data } = await axios.post(`${SD_HOST}/sdapi/v1/img2img`, payload, { timeout: 180_000 });
-    const info = JSON.parse(data.info || "{}");
-    res.json({ images: data.images, seed: info.seed, parameters: info });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  if (req.headers["x-async"] === "true") return res.json(enqueue("img2img", payload));
+
+  const { job_id } = enqueue("img2img", payload);
+  const result = await waitForJob(job_id, 180_000);
+  if (result.error) return res.status(500).json({ error: result.error });
+  res.json(result.result);
 });
 
 // ── Queue status ──────────────────────────────────────────────
@@ -534,8 +544,13 @@ app.post("/train/lora", auth, async (req, res) => {
     rank = 32, epochs = 20, learning_rate = "1e-4", batch_size = 2,
   } = req.body;
 
-  if (!name)         return res.status(400).json({ error: "name required" });
+  if (!name || !/^[A-Za-z0-9_\-]{1,64}$/.test(name)) {
+    return res.status(400).json({ error: "name required (alphanumeric, _ or -, max 64)" });
+  }
   if (!images?.length) return res.status(400).json({ error: "images required" });
+  if (!base_model || !ALLOWED_BASE_MODELS.has(base_model)) {
+    return res.status(400).json({ error: "invalid base_model (not in whitelist)" });
+  }
 
   const jobId    = randomUUID().slice(0, 8);
   const trainDir = `/tmp/lora_${jobId}`;

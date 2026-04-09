@@ -385,8 +385,8 @@ fi
 # ── Install Node.js + npm ─────────────────────────────────────
 if ! command -v node &>/dev/null; then
   log "Installing Node.js..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - > /dev/null 2>&1
-  apt-get install -y -qq nodejs
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - || { err "Node.js setup script failed"; exit 1; }
+  apt-get install -y -qq nodejs    || { err "Node.js install failed"; exit 1; }
   log "✓ Node.js $(node --version)"
 else
   log "Node.js already installed: $(node --version)"
@@ -395,18 +395,22 @@ fi
 # ── Install pm2 (keeps API wrapper alive, auto-restarts on crash) ──
 if ! command -v pm2 &>/dev/null; then
   log "Installing pm2 process manager..."
-  npm install -g pm2 --quiet
+  npm install -g pm2 --quiet || { err "pm2 install failed"; exit 1; }
 fi
 
-# ── Pull latest ComixBook code from GitHub (if repo configured) ──
+# ── Pull latest ComixBook code from GitHub (pinned to main) ──
 REPO_DIR="/workspace/ComixBook"
 if [ -d "$REPO_DIR/.git" ]; then
-  log "Pulling latest ComixBook from GitHub..."
-  cd "$REPO_DIR" && git pull --quiet && cd /workspace
-  log "✓ Code updated"
+  log "Pulling latest ComixBook from GitHub (origin/main)..."
+  if ! (cd "$REPO_DIR" && git fetch --quiet origin main && git checkout --quiet main && git reset --hard --quiet origin/main); then
+    err "git pull failed — continuing with existing checkout"
+  else
+    log "✓ Code updated to $(cd "$REPO_DIR" && git rev-parse --short HEAD)"
+  fi
+  cd /workspace
 else
   warn "No ComixBook repo at $REPO_DIR — cloning..."
-  git clone --quiet https://github.com/mawegrzyn-ux/comixbook.git "$REPO_DIR" && \
+  git clone --quiet --branch main https://github.com/mawegrzyn-ux/comixbook.git "$REPO_DIR" && \
     log "✓ Repo cloned" || \
     warn "Clone failed — continuing without auto-update"
 fi
@@ -444,7 +448,8 @@ cat > "$API_DIR/package.json" << 'PKGEOF'
 }
 PKGEOF
 
-cd "$API_DIR" && npm install --quiet && cd /workspace
+(cd "$API_DIR" && npm install --quiet) || { err "npm install failed for API wrapper"; exit 1; }
+cd /workspace
 
 # ── Write .env for API wrapper ────────────────────────────────
 cat > "$API_DIR/.env" << ENVEOF
@@ -474,7 +479,21 @@ log "Extra env vars for full features:"
 log "  RUNPOD_API_KEY + RUNPOD_POD_ID  → auto-shutdown when idle"
 log "  IDLE_MINUTES=30                 → idle timeout in minutes"
 
+# ── Swap file (insurance against pip build OOM on low-RAM pods) ──
+if [ ! -f /workspace/swapfile ]; then
+  log "Creating 16G swap file on network volume..."
+  fallocate -l 16G /workspace/swapfile 2>/dev/null && \
+    chmod 600 /workspace/swapfile && \
+    mkswap /workspace/swapfile > /dev/null 2>&1 || \
+    warn "swap file creation failed — continuing without swap"
+fi
+swapon /workspace/swapfile 2>/dev/null && log "✓ Swap active: $(free -h | awk '/Swap:/ {print $2}')" || true
+
 # ── Launch SD WebUI ───────────────────────────────────────────
+# NOTE: -f flag required because the container runs as root and webui.sh
+# aborts on root by default. --listen binds to 0.0.0.0 for RunPod proxy.
 log "Launching SD WebUI on port 7860..."
 cd "$WEBUI_DIR"
-bash webui.sh --skip-torch-check
+nohup bash webui.sh -f --skip-torch-check --listen --port 7860 --api --xformers --no-half-vae \
+  > /workspace/webui.log 2>&1 &
+log "✓ SD WebUI launching in background — tail /workspace/webui.log"
