@@ -89,7 +89,20 @@ clone_ext() {
   git clone --quiet "$url" "$EXT_DIR/$name" && log "✓ $name" || warn "✗ $name clone failed"
 }
 
-# ── Create dirs ───────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+#  STABLE DIFFUSION WEBUI (AUTOMATIC1111)
+# ════════════════════════════════════════════════════════════
+info "── Stable Diffusion WebUI ───────────────────"
+
+if [ ! -d "$WEBUI_DIR/.git" ]; then
+  log "Cloning SD WebUI..."
+  git clone --quiet https://github.com/AUTOMATIC1111/stable-diffusion-webui.git "$WEBUI_DIR"
+  log "✓ SD WebUI cloned"
+else
+  log "SD WebUI already installed, skipping clone."
+fi
+
+# ── Create model dirs ─────────────────────────────────────
 mkdir -p "$MODELS_DIR" "$VAE_DIR" "$LORA_DIR" "$EMBED_DIR" "$EXT_DIR"
 
 # ════════════════════════════════════════════════════════════
@@ -393,7 +406,7 @@ if [ -d "$REPO_DIR/.git" ]; then
   log "✓ Code updated"
 else
   warn "No ComixBook repo at $REPO_DIR — cloning..."
-  git clone --quiet https://github.com/magwerzyn-ux/comixbook.git "$REPO_DIR" && \
+  git clone --quiet https://github.com/mawegrzyn-ux/comixbook.git "$REPO_DIR" && \
     log "✓ Repo cloned" || \
     warn "Clone failed — continuing without auto-update"
 fi

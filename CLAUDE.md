@@ -3,7 +3,7 @@
 # Keep this file updated as the project evolves
 
 ## Repository
-- **GitHub:** https://github.com/magwerzyn-ux/comixbook
+- **GitHub:** https://github.com/mawegrzyn-ux/comixbook
 - **Name:** ComixBook
 
 ## Developer environment
@@ -65,7 +65,7 @@ ComixBook/
 - **Pod startup:** `bash /workspace/start.sh`
 - **Ports exposed:** 7860 (SD WebUI), 3000 (API), 8888 (JupyterLab)
 - **Network volume:** mounted at `/workspace` — persists between pod restarts
-- `start.sh` auto-pulls from `magwerzyn-ux/comixbook` on boot if repo is cloned at `/workspace/ComixBook`
+- `start.sh` auto-pulls from `mawegrzyn-ux/comixbook` on boot if repo is cloned at `/workspace/ComixBook`
 
 ### Services on the pod
 | Service | Port |
